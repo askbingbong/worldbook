@@ -20,7 +20,7 @@ Deployed automatically to GitHub Pages on every push to `main`.
 ## Status
 
 - [x] Setup: scaffold, spec, CI deploy workflow
-- [ ] Stage 1: data model, storage, Library, world creation (Default look)
+- [x] Stage 1: data model, IndexedDB storage, Library (pinned, folders, search, long-press actions), 3-step new-world flow (Default look), seeded Mango World
 - [ ] Stage 2: world view, block picker/menu, Note/List/Frame/Portal, breadcrumbs, Move into…, select mode
 - [ ] Stage 3: tags, highlight, Tag Manager, Inspector, Player/Playlist/Media, mini-player
 - [ ] Stage 4: Button/Toggle/Picker actions
