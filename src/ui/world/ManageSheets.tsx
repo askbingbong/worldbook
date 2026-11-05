@@ -11,7 +11,7 @@ import {
   type Dest,
 } from '../../model/ops'
 import type { Block, ID, Space } from '../../model/types'
-import { change, setBlock, setContent, showToast, useStore } from '../../store/store'
+import { change, setBlock, setContent, useStore } from '../../store/store'
 import Sheet from '../Sheet'
 import ButtonConfig from './ButtonConfig'
 
@@ -24,6 +24,7 @@ export function BlockMenu({
   onMove,
   onTags,
   onConnections,
+  onStyle,
 }: {
   block: Block
   onClose: () => void
@@ -31,6 +32,7 @@ export function BlockMenu({
   onMove: () => void
   onTags: () => void
   onConnections: () => void
+  onStyle: () => void
 }) {
   const { snap } = useStore()
   const block = snap.blocks.find((b) => b.id === initial.id) ?? initial
@@ -40,8 +42,6 @@ export function BlockMenu({
     fn()
     onClose()
   }
-  const soon = (what: string, stage: number) =>
-    run(() => showToast(`${what} arrives in Stage ${stage}.`))
   return (
     <Sheet
       title={`${metaOf(block.type).icon} ${block.title || metaOf(block.type).label}`}
@@ -99,7 +99,7 @@ export function BlockMenu({
         >
           {block.hidden ? 'Show' : 'Hide'}
         </button>
-        <button className="btn secondary" onClick={soon('Block styling', 5)}>
+        <button className="btn secondary" onClick={onStyle}>
           Style
         </button>
         <button

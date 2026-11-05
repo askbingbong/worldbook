@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { metaOf } from '../../model/blockTypes'
 import type { Block, Space, World } from '../../model/types'
-import { change, showToast, useStore } from '../../store/store'
+import { change, useStore } from '../../store/store'
 import Sheet from '../Sheet'
 
 export function RenameSheet({
@@ -43,22 +43,30 @@ export function RenameSheet({
   )
 }
 
-export function WorldMenu({ onClose, onSelect }: { onClose: () => void; onSelect: () => void }) {
-  const soon = (what: string, stage: number) => () => {
-    showToast(`${what} arrives in Stage ${stage}.`)
-    onClose()
-  }
+export function WorldMenu({
+  onClose,
+  onSelect,
+  onAppearance,
+  onTheme,
+  onExport,
+}: {
+  onClose: () => void
+  onSelect: () => void
+  onAppearance: () => void
+  onTheme: () => void
+  onExport: () => void
+}) {
   return (
     <Sheet title="World menu" onClose={onClose}>
       <div className="stack">
-        <button className="btn secondary" onClick={soon('Appearance', 5)}>
+        <button className="btn secondary" onClick={onAppearance}>
           Appearance
         </button>
-        <button className="btn secondary" onClick={soon('Theme', 5)}>
+        <button className="btn secondary" onClick={onTheme}>
           Theme
         </button>
-        <button className="btn secondary" onClick={soon('Export', 6)}>
-          Export
+        <button className="btn secondary" onClick={onExport}>
+          Export this world
         </button>
         <button className="btn secondary" onClick={onSelect}>
           Select mode

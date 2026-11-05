@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { lookVars } from '../../model/defaults'
+import { DEFAULT_LOOK } from '../../model/defaults'
+import { inheritedLook, spaceLook } from '../../model/appearance'
+import {
+  applyToAllSubspaces,
+  saveCustom,
+  setSpaceAppearance,
+  setWorldLook,
+  updateCustom,
+} from '../../store/appearance'
+import LookEditor from '../appearance/LookEditor'
+import { BackdropLayer, themeProps } from '../appearance/theme'
+import { StyleSheet, ThemeSheet } from '../appearance/Sheets'
 import { metaOf } from '../../model/blockTypes'
 import {
   addBlock,
@@ -9,13 +20,14 @@ import {
   spacePath,
   wrapInFrame,
 } from '../../model/ops'
-import type { Block, BlockType, ID } from '../../model/types'
+import type { Block, BlockType, ID, World } from '../../model/types'
 import { change, recordPortal, showToast, useStore, visitWorld } from '../../store/store'
 import { go, worldPath } from '../router'
 import { useLongPress } from '../useLongPress'
 import BlockView from './BlockView'
 import { Ctx } from './ctx'
 import { BlockMenu, EditSheet, MoveIntoSheet } from './ManageSheets'
+import { exportWorld } from '../../lib/exportImport'
 import { PathSheet, RenameSheet, SearchSheet, WorldMenu } from './NavSheets'
 import { InspectorSheet, TagManager, TagsSheet } from './TagUI'
 import { scopeKey, tagIndex, targetsOf } from '../../model/tags'
@@ -34,6 +46,9 @@ type Sheetstate =
   | { k: 'tags'; ids: ID[] }
   | { k: 'tagManager' }
   | { k: 'inspector'; block: Block }
+  | { k: 'appearance' }
+  | { k: 'theme' }
+  | { k: 'style'; block: Block }
   | null
 
 export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?: ID }) {
@@ -47,10 +62,11 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
   const [selectMode, setSelectMode] = useState(false)
   const [picked, setPicked] = useState<Set<ID>>(new Set())
   const [sheet, setSheet] = useState<Sheetstate>(null)
-  const [fx, setFx] = useState(0)
+  const [fx, setFx] = useState<{ n: number; from: string; to: string } | null>(null)
   const [scrollTo, setScrollTo] = useState<ID | null>(null)
   // The finger-lift after a long press fires a click on the same block; ignore it.
   const selectGuard = useRef(0)
+  const curAccent = useRef('#7c9cff')
   const [highlight, setHighlight] = useState<string | null>(null)
   const [showHidden, setShowHidden] = useState(false)
   // A jump (search / tag manager) selects its target once the destination space is showing.
@@ -82,6 +98,8 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
     }
   }, [scrollTo, snap.blocks, sid])
 
+  const look = useMemo(() => (space ? spaceLook(snap, space.id) : DEFAULT_LOOK), [snap, space])
+  curAccent.current = look.accent
   const path = useMemo(() => (space ? spacePath(snap, space.id) : []), [snap, space])
 
   /** Blocks that stay bright while a tag is highlighted: matches plus the frames holding them. */
@@ -133,10 +151,14 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
       const target = snap.spaces.find((s) => s.id === id)
       if (!target || !world) return
       recordPortal(world.id, id, target.title)
-      setFx((n) => n + 1)
+      setFx((f) => ({
+        n: (f?.n ?? 0) + 1,
+        from: curAccent.current,
+        to: spaceLook(snap, id).accent,
+      }))
       go(worldPath(world.id, id))
     },
-    [snap.spaces, world],
+    [snap, world],
   )
 
   const startSelect = useCallback((id?: ID) => {
@@ -268,6 +290,8 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
     <Ctx.Provider
       value={{
         world,
+        look,
+        openStyle: (b) => setSheet({ k: 'style', block: b }),
         space,
         selectedId,
         setSelectedId,
@@ -290,9 +314,10 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
       }}
     >
       <div
-        className={`world-shell${selectMode ? ' select-mode' : ''}`}
-        style={lookVars(world.look) as React.CSSProperties}
+        className={`world-shell themed${selectMode ? ' select-mode' : ''}`}
+        {...themeProps(look)}
       >
+        <BackdropLayer look={look} />
         <div className="depth" aria-hidden>
           {Array.from({ length: Math.min(depth, 5) }, (_, i) => (
             <span key={i} style={{ opacity: 1 - i * 0.14 }} />
@@ -438,8 +463,14 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
           </nav>
         )}
 
-        {fx > 0 && (
-          <div key={fx} className="portal-fx" aria-hidden onAnimationEnd={() => setFx(0)} />
+        {fx && (
+          <div
+            key={fx.n}
+            className="portal-fx"
+            aria-hidden
+            style={{ ['--fx-from' as string]: fx.from, ['--fx-to' as string]: fx.to }}
+            onAnimationEnd={() => setFx(null)}
+          />
         )}
 
         {sheet?.k === 'picker' && (
@@ -465,6 +496,7 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
             onMove={() => setSheet({ k: 'move', ids: [sheet.block.id] })}
             onTags={() => setSheet({ k: 'tags', ids: [sheet.block.id] })}
             onConnections={() => setSheet({ k: 'inspector', block: sheet.block })}
+            onStyle={() => setSheet({ k: 'style', block: sheet.block })}
           />
         )}
         {sheet?.k === 'edit' && <EditSheet block={sheet.block} onClose={close} />}
@@ -492,7 +524,25 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
           />
         )}
         {sheet?.k === 'rename' && <RenameSheet world={world} space={space} onClose={close} />}
-        {sheet?.k === 'worldMenu' && <WorldMenu onClose={close} onSelect={() => startSelect()} />}
+        {sheet?.k === 'worldMenu' && (
+          <WorldMenu
+            onClose={close}
+            onSelect={() => startSelect()}
+            onAppearance={() => setSheet({ k: 'appearance' })}
+            onTheme={() => setSheet({ k: 'theme' })}
+            onExport={() => {
+              exportWorld(world.id)
+              close()
+            }}
+          />
+        )}
+        {sheet?.k === 'theme' && (
+          <ThemeSheet worldId={world.id} look={world.look} onClose={close} />
+        )}
+        {sheet?.k === 'style' && <StyleSheet block={sheet.block} base={look} onClose={close} />}
+        {sheet?.k === 'appearance' && (
+          <AppearanceEditor world={world} spaceId={space.id} onClose={close} />
+        )}
         {sheet?.k === 'search' && (
           <SearchSheet worldId={world.id} onClose={close} onJump={jumpTo} />
         )}
@@ -510,5 +560,76 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
         )}
       </div>
     </Ctx.Provider>
+  )
+}
+
+/** World ⋯ → Appearance: opens the editor on the current look (world root) or the space's overrides. */
+function AppearanceEditor({
+  world,
+  spaceId,
+  onClose,
+}: {
+  world: World
+  spaceId: ID
+  onClose: () => void
+}) {
+  const { snap } = useStore()
+  const space = snap.spaces.find((s) => s.id === spaceId)!
+  const isRoot = space.id === world.rootSpaceId
+  const src = snap.customs.find((c) => c.id === world.sourceCustomId)
+  const parentSpace = snap.spaces.find((s) => s.id === space.parentSpaceId)
+
+  if (isRoot)
+    return (
+      <LookEditor
+        mode="world"
+        title="Appearance"
+        initial={world.look}
+        customName={src?.name}
+        onCancel={onClose}
+        onDone={({ look }) => {
+          setWorldLook(world.id, look)
+          onClose()
+        }}
+        onSaveNew={(name, look) => {
+          const c = saveCustom(name, look)
+          setWorldLook(world.id, look, c.id, 'Saved to My Customs and applied.')
+          onClose()
+        }}
+        onUpdateCustom={
+          src
+            ? (look) => {
+                updateCustom(src.id, look)
+                setWorldLook(world.id, look, src.id)
+                onClose()
+              }
+            : undefined
+        }
+      />
+    )
+  return (
+    <LookEditor
+      mode="space"
+      title={`Appearance · ${space.title}`}
+      initial={spaceLook(snap, space.id)}
+      parent={inheritedLook(snap, space.id)}
+      parentName={parentSpace?.title ?? world.title}
+      initialPatch={space.appearance}
+      customName={src?.name}
+      onCancel={onClose}
+      onDone={({ patch }) => {
+        setSpaceAppearance(space.id, patch)
+        onClose()
+      }}
+      onApplyAll={(patch) => {
+        applyToAllSubspaces(space.id, patch)
+        onClose()
+      }}
+      onSaveNew={(name, look, patch) => {
+        saveCustom(name, look)
+        setSpaceAppearance(space.id, patch, 'Saved the effective look to My Customs.')
+        onClose()
+      }}
+    />
   )
 }

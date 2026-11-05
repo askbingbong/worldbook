@@ -1,4 +1,4 @@
-import { lookVars } from '../model/defaults'
+import { themeProps } from './appearance/theme'
 import type { World } from '../model/types'
 import { useLongPress } from './useLongPress'
 
@@ -21,7 +21,7 @@ interface Props {
 export default function WorldCard({ world, onOpen, onMenu }: Props) {
   const press = useLongPress(onOpen, onMenu)
   return (
-    <div className="world-card" style={lookVars(world.look) as React.CSSProperties}>
+    <div className="world-card themed" {...themeProps(world.look)}>
       <button
         className="world-card-main"
         {...press}

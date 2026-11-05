@@ -24,6 +24,7 @@ import { TagChip } from './TagUI'
 import { activeLinks, connectedPlaylist, scopeKey } from '../../model/tags'
 import { useAudioSel } from '../../store/audio'
 import { useTagIndex } from '../hooks'
+import { useBlockSkin } from '../appearance/theme'
 
 const LAYOUTS = ['stack', 'row', 'grid', 'tabs'] as const
 
@@ -144,7 +145,10 @@ export default function BlockView({ block }: { block: Block }) {
     openInspector,
     isHidden,
     switchDim,
+    look,
   } = useWorld()
+  const { snap } = useStore()
+  const skin = useBlockSkin(snap.blocks, block, look)
   const idx = useTagIndex()
   const linkCount = activeLinks(idx, block).length
   const pl = block.type === 'player' ? connectedPlaylist(idx, block) : undefined
@@ -169,6 +173,7 @@ export default function BlockView({ block }: { block: Block }) {
       <div
         className={`block slim${selected ? ' selected' : ''}${isPicked ? ' picked' : ''}${dimmed ? ' dimmed' : ''}${hiddenNow ? ' is-hidden' : ''}`}
         data-block-id={block.id}
+        style={skin.style}
         onClickCapture={(e) => {
           if (selectMode && (e.target as HTMLElement).closest('.block') === e.currentTarget) {
             e.preventDefault()
@@ -210,6 +215,7 @@ export default function BlockView({ block }: { block: Block }) {
     <section
       className={`block${selected ? ' selected' : ''}${isPicked ? ' picked' : ''}${block.collapsed ? ' collapsed' : ''}${playing ? ' playing' : ''}${dimmed ? ' dimmed' : ''}${hiddenNow ? ' is-hidden' : ''}`}
       data-block-id={block.id}
+      style={skin.style}
       aria-label={`${meta.label}: ${block.title}`}
       onClickCapture={(e) => {
         if (selectMode && (e.target as HTMLElement).closest('.block') === e.currentTarget) {
@@ -227,7 +233,7 @@ export default function BlockView({ block }: { block: Block }) {
         else setSelectedId(block.id)
       }}
     >
-      <div className="block-head" {...press}>
+      <div className={`block-head hdr-${skin.header}`} {...press}>
         {selectMode ? (
           <span
             className="pick"

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { init, useStore } from './store/store'
 import WorldView from './ui/world/WorldView'
 import Library from './ui/Library'
+import CustomsPage from './ui/appearance/CustomsPage'
 import NewWorldFlow from './ui/NewWorldFlow'
 import Toasts from './ui/Toasts'
 import { MiniPlayer } from './ui/world/AudioBlocks'
@@ -23,7 +24,9 @@ export default function App() {
   if (!ready) return <div className="page dim">Loading…</div>
   return (
     <>
-      {route === '/new' ? (
+      {route === '/customs' ? (
+        <CustomsPage />
+      ) : route === '/new' ? (
         <NewWorldFlow />
       ) : route.startsWith('/w/') ? (
         <WorldView worldId={route.split('/')[2]} spaceId={route.split('/')[3]} />

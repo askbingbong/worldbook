@@ -118,10 +118,7 @@ export default function Library() {
       {libMenu && (
         <Sheet title="Library" onClose={() => setLibMenu(false)}>
           <div className="stack">
-            <button
-              className="btn secondary"
-              onClick={() => setInfo('My Customs arrives with the Appearance system (Stage 5).')}
-            >
+            <button className="btn secondary" onClick={() => go('/customs')}>
               My Customs
             </button>
             <button

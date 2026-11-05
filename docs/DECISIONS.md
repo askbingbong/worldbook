@@ -30,3 +30,10 @@ Judgment calls made where the spec was silent.
 - **Random picker** draws from connected List/Playlist blocks (same tag); it also has an "own items" fallback so it works untagged. It never repeats the previous result when it has a choice.
 - **Link card** shows the domain and your own description: real previews need a server (CORS), which v1 doesn't have.
 - **Timer** run state is local (not saved); only the duration persists.
+- **Look model**: a world stores a full `Look` (its own copy). Spaces store a `Patch` (only overrides); blocks and rules store a `BlockPatch`. Resolution order, lowest to highest: Default → World → parent spaces → space → frame ancestors → family rule → type rule → block. (Type beats family because it's more specific.) Older saved looks are filled with defaults on load.
+- **Editing is a draft**: the editor changes a draft and only "Done" writes to the world (with Undo). "Save to Custom" saves _and_ applies it to the world, and records the source so "Update “name”" appears next time. Updating a custom never touches worlds that already copied it.
+- **Space editor**: any control change makes that setting "Custom •"; tapping "↑ Inherited" copies the current value in as an override; tapping "• Custom ✕" resets just that setting. "Apply to all subspaces" copies the patch to this space and every subspace below it (undoable).
+- **Fonts** are system font stacks only (no downloads, works offline), so exact appearance varies by device.
+- **Contrast guard** checks text, dim text and accent text against background/surface/nested surface at 4.5:1; Auto-fix only moves foreground colors (never backgrounds) and respects locks. Text on the accent color is chosen automatically (dark or white).
+- **Backgrounds**: uploads are stored as `file:<id>` (images ≤3 MB after compression, GIFs ≤4 MB, video ≤30 MB). Images always get an automatic scrim. GIF/video can pause when idle (30 s), tab-hidden or off-screen; a paused GIF shows its first frame. A broken link falls back to the solid background color with a ⚠ note.
+- **Roundness stops**: Sharp 2px, Soft 8px, Round 16px (default), Pill 28px (buttons/chips become fully round).

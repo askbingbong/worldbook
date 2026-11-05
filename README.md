@@ -24,5 +24,5 @@ Deployed automatically to GitHub Pages on every push to `main`.
 - [x] Stage 2: world view, block picker/menu, Note/List/Frame/Portal (+ Divider/Label/Spacer), breadcrumbs, Move into…, select mode, undo toasts, sidebar tree on desktop
 - [x] Stage 3: tags (direction, local/@global, colors, highlight), Tag Manager, Inspector, Player/Playlist/Media with tag-driven linking, persistent mini-player, offline uploads (compressed + size-capped)
 - [x] Stage 4: Button (link / toggle / play-pause / portal / tag-group, block or tag targets), Toggle (reacts via tags), Random picker, plus Counter, Timer, Clock, Link card
-- [ ] Stage 5: Appearance system (editor, presets, My Customs, random, inheritance, advanced)
+- [x] Stage 5: Appearance — live editor (Colors, Font, Shape, Background, Motion, Adv), 4 built-in presets, My Customs (rename, duplicate, delete, reorder, include-in-random, sort), random preset/custom with reroll, inheritance for subspaces, per-family/type/block overrides, contrast guard + auto-fix, randomize with locks
 - [ ] Stage 6: polish (a11y, responsive sidebar/inspector, export/import)

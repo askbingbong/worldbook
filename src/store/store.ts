@@ -5,6 +5,7 @@ import { updateBlock } from '../model/ops'
 import type { Block, Folder, ID, Look, Snapshot, Space, World } from '../model/types'
 import { getMeta, loadAll, markSeeded, setMeta, write, type StoreName, type Write } from './db'
 import { putFile } from './files'
+import { normalizeSnapshotLooks } from './appearance'
 import { GROOVE, makeTone, SUNNY } from '../model/tones'
 
 export interface Toast {
@@ -97,7 +98,7 @@ export async function init() {
     }
     await setMeta('tonesV1', true)
   }
-  set({ snap, ready: true })
+  set({ snap: normalizeSnapshotLooks(snap), ready: true })
 }
 
 export const getSnap = () => state.snap
@@ -108,6 +109,7 @@ export function createWorld(input: {
   emoji: string
   folderId: ID | null
   look?: Look
+  sourceCustomId?: ID
 }): World {
   const now = Date.now()
   const id = uid()
@@ -119,7 +121,8 @@ export function createWorld(input: {
     emoji: input.emoji || '🌍',
     folderId: input.folderId,
     pinned: false,
-    look: { ...(input.look ?? DEFAULT_LOOK) }, // always a COPY
+    look: structuredClone(input.look ?? DEFAULT_LOOK), // always a COPY
+    sourceCustomId: input.sourceCustomId,
     rootSpaceId: root.id,
     createdAt: now,
     lastVisited: now,

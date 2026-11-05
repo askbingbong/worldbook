@@ -1,8 +1,11 @@
 import { createContext, useContext } from 'react'
-import type { Block, ID, Space, World } from '../../model/types'
+import type { Block, ID, Look, Space, World } from '../../model/types'
 
 export interface WorldCtx {
   world: World
+  /** effective look of the current space */
+  look: Look
+  openStyle: (b: Block) => void
   space: Space
   selectedId: ID | null
   setSelectedId: (id: ID | null) => void
