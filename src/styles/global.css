@@ -2218,3 +2218,37 @@ select:focus-visible,
     border: 1px solid CanvasText;
   }
 }
+
+/* ===== media playlists + loop ===== */
+.btn.speed.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.stage-video {
+  width: 100%;
+  max-height: 60vh;
+  display: block;
+  background: #000;
+  border-radius: var(--r-nested);
+}
+.video-host {
+  min-height: 48px;
+}
+.audio-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface-2);
+  border-radius: var(--r-nested);
+  overflow-wrap: anywhere;
+}
+.audio-art {
+  font-size: 1.75rem;
+}
+.kind-icon {
+  margin-right: 8px;
+}
+.track {
+  gap: 0;
+}

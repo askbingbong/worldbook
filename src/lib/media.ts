@@ -12,6 +12,23 @@ export function youtubeId(url: string): string | null {
   return m ? m[1] : null
 }
 export const isVideoUrl = (u: string) => /\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(u)
+export type MediaKind = 'audio' | 'video' | 'image' | 'youtube'
+/** What kind of media a playlist entry is (file uploads carry a MIME type; links are guessed from the URL). */
+export function kindOf(t: { url: string; mime?: string }): MediaKind {
+  if (youtubeId(t.url)) return 'youtube'
+  const m = t.mime ?? ''
+  if (m.startsWith('image/') || /\.(png|jpe?g|gif|webp|avif|svg|bmp)(\?|#|$)/i.test(t.url))
+    return 'image'
+  if (m.startsWith('video/') || isVideoUrl(t.url)) return 'video'
+  return 'audio'
+}
+export const KIND_ICON: Record<MediaKind, string> = {
+  audio: '🎵',
+  video: '🎬',
+  image: '🖼️',
+  youtube: '▶️',
+}
+
 export const isAudioUrl = (u: string) => /\.(mp3|wav|ogg|oga|m4a|aac|flac|opus)(\?|#|$)/i.test(u)
 
 async function compressImage(file: File): Promise<Blob> {
@@ -38,7 +55,7 @@ export type Kind = 'image' | 'audio' | 'video'
  */
 export async function ingestFile(
   file: File,
-  kind: Kind | 'media',
+  kind: Kind | 'media' | 'any',
 ): Promise<{ ref: string; mime: string }> {
   const t = file.type
   const isImg = t.startsWith('image/')
@@ -48,6 +65,8 @@ export async function ingestFile(
   if (kind === 'audio' && !(isAud || isVid))
     throw new UploadError('Please choose an audio or video file.')
   if (kind === 'video' && !isVid) throw new UploadError('Please choose a video file.')
+  if (kind === 'any' && !(isImg || isVid || isAud))
+    throw new UploadError('Please choose an audio, video or image file.')
   if (kind === 'media' && !(isImg || isVid))
     throw new UploadError('Please choose an image, GIF or video.')
   const tooBig = (cap: number, what: string) =>

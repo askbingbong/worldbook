@@ -2,7 +2,7 @@
 import { updateBlock } from '../model/ops'
 import { blocksWithTag, connectedPlaylist, tagIndex } from '../model/tags'
 import type { Block, ID, Snapshot } from '../model/types'
-import { getAudio, play, toggle as toggleAudio, tracksOfBlock } from './audio'
+import { getAudio, isAvTrack, play, toggle as toggleAudio, tracksOfBlock } from './audio'
 import { change, getSnap, showToast } from './store'
 
 export type ActionKind = 'link' | 'toggle' | 'playpause' | 'portal' | 'taggroup'
@@ -106,8 +106,13 @@ export function runButton(b: Block, enterSpace: (id: ID) => void) {
         : own
           ? [{ title: String(player.content.name ?? 'Audio'), url: own }]
           : []
-      if (!queue.length) return showToast('That player has nothing to play yet.')
-      void play(queue, 0, { owner: player.id, playlistId: link ? link.other.id : null })
+      const first = queue.findIndex(isAvTrack)
+      if (first < 0) return showToast('That player has nothing to play yet.')
+      void play(queue, first, {
+        owner: player.id,
+        playlistId: link ? link.other.id : null,
+        filter: 'av',
+      })
       return
     }
     case 'portal': {
