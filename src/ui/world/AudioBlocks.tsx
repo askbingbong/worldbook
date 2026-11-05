@@ -13,6 +13,7 @@ import {
   stop,
   toggle,
   useAudio,
+  tracksOfBlock,
   type Track,
 } from '../../store/audio'
 import { change, setContent, showToast } from '../../store/store'
@@ -32,8 +33,7 @@ interface Item {
   title: string
   url: string
 }
-export const tracksOf = (b: Block): Track[] =>
-  ((b.content.items as Item[]) ?? []).map((i) => ({ title: i.title, url: i.url }))
+export const tracksOf = tracksOfBlock
 
 /** Shared transport: play/pause, ±10s, scrub, speed (+ prev/next for queues). */
 export function Transport({

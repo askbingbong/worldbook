@@ -7,16 +7,18 @@ import {
   duplicateBlocks,
   moveInto,
   moveStep,
+  updateBlock,
   type Dest,
 } from '../../model/ops'
 import type { Block, ID, Space } from '../../model/types'
 import { change, setBlock, setContent, showToast, useStore } from '../../store/store'
 import Sheet from '../Sheet'
+import ButtonConfig from './ButtonConfig'
 
 /* ---------- ⋯ block menu ---------- */
 
 export function BlockMenu({
-  block,
+  block: initial,
   onClose,
   onEdit,
   onMove,
@@ -31,6 +33,7 @@ export function BlockMenu({
   onConnections: () => void
 }) {
   const { snap } = useStore()
+  const block = snap.blocks.find((b) => b.id === initial.id) ?? initial
   const sibs = childrenOf(snap.blocks, block.spaceId, block.parentId)
   const i = sibs.findIndex((b) => b.id === block.id)
   const run = (fn: () => void) => () => {
@@ -85,6 +88,17 @@ export function BlockMenu({
         >
           {block.collapsed ? 'Expand' : 'Collapse'}
         </button>
+        <button
+          className="btn secondary"
+          onClick={run(() =>
+            change(
+              (st) => updateBlock(st, block.id, { hidden: !block.hidden }),
+              block.hidden ? 'Block shown.' : 'Block hidden.',
+            ),
+          )}
+        >
+          {block.hidden ? 'Show' : 'Hide'}
+        </button>
         <button className="btn secondary" onClick={soon('Block styling', 5)}>
           Style
         </button>
@@ -101,8 +115,9 @@ export function BlockMenu({
 
 /* ---------- Edit ---------- */
 
-export function EditSheet({ block, onClose }: { block: Block; onClose: () => void }) {
+export function EditSheet({ block: initial, onClose }: { block: Block; onClose: () => void }) {
   const { snap } = useStore()
+  const block = snap.blocks.find((b) => b.id === initial.id) ?? initial
   const [title, setTitle] = useState(block.title)
   const c = block.content
   const spaces = snap.spaces.filter((s) => s.worldId === block.worldId)
@@ -176,6 +191,62 @@ export function EditSheet({ block, onClose }: { block: Block; onClose: () => voi
                   </option>
                 ))}
               </select>
+            </label>
+          </>
+        )}
+        {block.type === 'button' && <ButtonConfig block={block} />}
+        {block.type === 'toggle' && (
+          <label>
+            When switched off
+            <select
+              value={String(c.effect ?? 'dim')}
+              onChange={(e) => setContent(block.id, { effect: e.target.value })}
+            >
+              <option value="dim">Dim blocks sharing its tag</option>
+              <option value="hide">Hide blocks sharing its tag</option>
+              <option value="none">Do nothing (just a switch)</option>
+            </select>
+          </label>
+        )}
+        {block.type === 'picker' && (
+          <label>
+            Own items (one per line, used when no tagged list is connected)
+            <textarea
+              rows={5}
+              defaultValue={String(c.own ?? '')}
+              onBlur={(e) => setContent(block.id, { own: e.target.value })}
+            />
+          </label>
+        )}
+        {block.type === 'counter' && (
+          <label>
+            Step
+            <input
+              type="number"
+              min={1}
+              defaultValue={Number(c.step ?? 1)}
+              onBlur={(e) =>
+                setContent(block.id, { step: Math.max(1, Number(e.target.value) || 1) })
+              }
+            />
+          </label>
+        )}
+        {block.type === 'link' && (
+          <>
+            <label>
+              Link
+              <input
+                type="url"
+                defaultValue={String(c.url ?? '')}
+                onBlur={(e) => setContent(block.id, { url: e.target.value })}
+              />
+            </label>
+            <label>
+              Description
+              <input
+                defaultValue={String(c.desc ?? '')}
+                onBlur={(e) => setContent(block.id, { desc: e.target.value })}
+              />
             </label>
           </>
         )}

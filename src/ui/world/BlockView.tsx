@@ -9,6 +9,15 @@ import ListBody from './ListBody'
 import NoteBody from './NoteBody'
 import PortalBody from './PortalBody'
 import { SoonBody } from './SimpleBodies'
+import {
+  ButtonBody,
+  ClockBody,
+  CounterBody,
+  LinkBody,
+  PickerBody,
+  TimerBody,
+  ToggleBody,
+} from './InteractiveBlocks'
 import { PlayerBody, PlaylistBody } from './AudioBlocks'
 import MediaBody from './MediaBody'
 import { TagChip } from './TagUI'
@@ -35,9 +44,11 @@ function TitleInput({ block }: { block: Block }) {
 
 function FrameBody({ block }: { block: Block }) {
   const { snap } = useStore()
-  const { openPicker } = useWorld()
+  const { openPicker, isHidden, showHidden } = useWorld()
   const [tab, setTab] = useState(0)
-  const kids = childrenOf(snap.blocks, block.spaceId, block.id)
+  const kids = childrenOf(snap.blocks, block.spaceId, block.id).filter(
+    (k) => showHidden || !isHidden(k),
+  )
   const layout = String(block.content.layout ?? 'stack')
   const active = Math.min(tab, Math.max(0, kids.length - 1))
   return (
@@ -98,6 +109,20 @@ function Body({ block }: { block: Block }) {
       return <PlaylistBody block={block} />
     case 'player':
       return <PlayerBody block={block} />
+    case 'button':
+      return <ButtonBody block={block} />
+    case 'toggle':
+      return <ToggleBody block={block} />
+    case 'picker':
+      return <PickerBody block={block} />
+    case 'counter':
+      return <CounterBody block={block} />
+    case 'timer':
+      return <TimerBody block={block} />
+    case 'clock':
+      return <ClockBody block={block} />
+    case 'link':
+      return <LinkBody block={block} />
     default:
       return <SoonBody block={block} />
   }
@@ -117,6 +142,8 @@ export default function BlockView({ block }: { block: Block }) {
     lit,
     openTags,
     openInspector,
+    isHidden,
+    switchDim,
   } = useWorld()
   const idx = useTagIndex()
   const linkCount = activeLinks(idx, block).length
@@ -128,7 +155,8 @@ export default function BlockView({ block }: { block: Block }) {
         ? a.playing && (a.owner === block.id || (!!pl && a.playlistId === pl.other.id))
         : false,
   )
-  const dimmed = !!lit && !lit.has(block.id)
+  const dimmed = (!!lit && !lit.has(block.id)) || switchDim.has(block.id)
+  const hiddenNow = isHidden(block)
   const meta = metaOf(block.type)
   const isPicked = picked.has(block.id)
   const selected = selectedId === block.id && !selectMode
@@ -139,7 +167,7 @@ export default function BlockView({ block }: { block: Block }) {
   if (block.type === 'divider' || block.type === 'label' || block.type === 'spacer') {
     return (
       <div
-        className={`block slim${selected ? ' selected' : ''}${isPicked ? ' picked' : ''}${dimmed ? ' dimmed' : ''}`}
+        className={`block slim${selected ? ' selected' : ''}${isPicked ? ' picked' : ''}${dimmed ? ' dimmed' : ''}${hiddenNow ? ' is-hidden' : ''}`}
         data-block-id={block.id}
         onClickCapture={(e) => {
           if (selectMode && (e.target as HTMLElement).closest('.block') === e.currentTarget) {
@@ -180,7 +208,7 @@ export default function BlockView({ block }: { block: Block }) {
   const tags = block.tags
   return (
     <section
-      className={`block${selected ? ' selected' : ''}${isPicked ? ' picked' : ''}${block.collapsed ? ' collapsed' : ''}${playing ? ' playing' : ''}${dimmed ? ' dimmed' : ''}`}
+      className={`block${selected ? ' selected' : ''}${isPicked ? ' picked' : ''}${block.collapsed ? ' collapsed' : ''}${playing ? ' playing' : ''}${dimmed ? ' dimmed' : ''}${hiddenNow ? ' is-hidden' : ''}`}
       data-block-id={block.id}
       aria-label={`${meta.label}: ${block.title}`}
       onClickCapture={(e) => {

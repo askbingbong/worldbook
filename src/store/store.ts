@@ -100,7 +100,8 @@ export async function init() {
   set({ snap, ready: true })
 }
 
-const S = () => state.snap
+export const getSnap = () => state.snap
+const S = getSnap
 
 export function createWorld(input: {
   title: string

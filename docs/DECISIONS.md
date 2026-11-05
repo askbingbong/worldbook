@@ -25,3 +25,8 @@ Judgment calls made where the spec was silent.
 - **Uploads** are stored as Blobs in IndexedDB and referenced as `file:<id>`. Images are re-encoded to ≤1600px (JPEG/PNG) with a 3 MB cap, GIFs 4 MB, audio/video 30 MB, each with a clear message. Orphaned files are not garbage-collected (duplicates share them).
 - **Audio** uses one module-level `<audio>` element so playback survives navigation. YouTube links can't be played inline (embed only in Media blocks); in a Playlist they open in a new tab. Video links play audio-only.
 - **Sample tunes**: the seeded Playlist uses two tiny generated WAVs so playback works offline; an existing Mango World with the old placeholder links is migrated once.
+- **Hidden blocks**: Button toggle/tag-group actions set `block.hidden` (or a switch's "hide" effect). Hidden blocks disappear; a "N hidden · Show" pill reveals them as dashed stubs, and the block menu has Hide/Show, so nothing is ever unrecoverable.
+- **Toggle default**: new switches start _on_; when off they dim (default), hide, or ignore blocks that share a tag with them (per-switch setting).
+- **Random picker** draws from connected List/Playlist blocks (same tag); it also has an "own items" fallback so it works untagged. It never repeats the previous result when it has a choice.
+- **Link card** shows the domain and your own description: real previews need a server (CORS), which v1 doesn't have.
+- **Timer** run state is local (not saved); only the duration persists.

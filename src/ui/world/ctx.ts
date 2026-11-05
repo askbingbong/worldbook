@@ -20,6 +20,12 @@ export interface WorldCtx {
   lit: Set<ID> | null
   openTags: (ids: ID[]) => void
   openInspector: (b: Block) => void
+  openEdit: (b: Block) => void
+  /** hidden by a button / tag-group toggle / switch that is off */
+  isHidden: (b: Block) => boolean
+  showHidden: boolean
+  /** blocks dimmed because a connected switch is off */
+  switchDim: Set<ID>
 }
 export const Ctx = createContext<WorldCtx | null>(null)
 export const useWorld = (): WorldCtx => {

@@ -18,7 +18,7 @@ import { Ctx } from './ctx'
 import { BlockMenu, EditSheet, MoveIntoSheet } from './ManageSheets'
 import { PathSheet, RenameSheet, SearchSheet, WorldMenu } from './NavSheets'
 import { InspectorSheet, TagManager, TagsSheet } from './TagUI'
-import { scopeKey } from '../../model/tags'
+import { scopeKey, tagIndex, targetsOf } from '../../model/tags'
 import { BlockPicker, PortalSetup, rememberType, type InsertTarget } from './PickerSheets'
 
 type Sheetstate =
@@ -52,6 +52,7 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
   // The finger-lift after a long press fires a click on the same block; ignore it.
   const selectGuard = useRef(0)
   const [highlight, setHighlight] = useState<string | null>(null)
+  const [showHidden, setShowHidden] = useState(false)
   // A jump (search / tag manager) selects its target once the destination space is showing.
   const pendingSelect = useRef<ID | null>(null)
 
@@ -99,6 +100,22 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
     }
     return ids
   }, [highlight, snap.blocks, space])
+
+  /** Switches that are off dim or hide the blocks they share a tag with. */
+  const { switchDim, switchHide } = useMemo(() => {
+    const dim = new Set<ID>()
+    const hide = new Set<ID>()
+    if (!space) return { switchDim: dim, switchHide: hide }
+    const idx = tagIndex(snap)
+    for (const t of snap.blocks) {
+      if (t.type !== 'toggle' || t.worldId !== worldId || t.content.on) continue
+      const effect = String(t.content.effect ?? 'dim')
+      if (effect === 'none') continue
+      for (const l of targetsOf(idx, t)) (effect === 'hide' ? hide : dim).add(l.other.id)
+    }
+    return { switchDim: dim, switchHide: hide }
+  }, [snap, space, worldId])
+  const isHidden = (b: Block) => !!b.hidden || switchHide.has(b.id)
 
   const jumpTo = (b: Block) => {
     if (space && (b.spaceId !== space.id || b.worldId !== worldId)) {
@@ -161,7 +178,9 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
       </div>
     )
 
-  const blocks = childrenOf(snap.blocks, space.id, null)
+  const allTop = childrenOf(snap.blocks, space.id, null)
+  const blocks = allTop.filter((b) => showHidden || selectMode || !isHidden(b))
+  const hiddenCount = snap.blocks.filter((b) => b.spaceId === space.id && isHidden(b)).length
   const close = () => setSheet(null)
 
   const insertAfter = (): ID | null => {
@@ -264,6 +283,10 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
         lit,
         openTags: (ids) => setSheet({ k: 'tags', ids }),
         openInspector: (b) => setSheet({ k: 'inspector', block: b }),
+        openEdit: (b) => setSheet({ k: 'edit', block: b }),
+        isHidden,
+        showHidden: showHidden || selectMode,
+        switchDim,
       }}
     >
       <div
@@ -329,7 +352,7 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
           )}
           <main className="page world-page">
             <div key={space.id} className="space-enter">
-              {blocks.length === 0 ? (
+              {allTop.length === 0 ? (
                 <button
                   className="ghost-block"
                   onClick={() => setSheet({ k: 'picker', parentId: null })}
@@ -342,6 +365,17 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
                     <BlockView key={b.id} block={b} />
                   ))}
                 </div>
+              )}
+              {hiddenCount > 0 && (
+                <button
+                  className="hidden-pill"
+                  aria-pressed={showHidden}
+                  onClick={() => setShowHidden(!showHidden)}
+                >
+                  {showHidden
+                    ? 'Hide hidden blocks again'
+                    : `${hiddenCount} hidden block${hiddenCount > 1 ? 's' : ''} · Show`}
+                </button>
               )}
             </div>
           </main>

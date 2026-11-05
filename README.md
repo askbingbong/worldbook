@@ -23,6 +23,6 @@ Deployed automatically to GitHub Pages on every push to `main`.
 - [x] Stage 1: data model, IndexedDB storage, Library (pinned, folders, search, long-press actions), 3-step new-world flow (Default look), seeded Mango World
 - [x] Stage 2: world view, block picker/menu, Note/List/Frame/Portal (+ Divider/Label/Spacer), breadcrumbs, Move into…, select mode, undo toasts, sidebar tree on desktop
 - [x] Stage 3: tags (direction, local/@global, colors, highlight), Tag Manager, Inspector, Player/Playlist/Media with tag-driven linking, persistent mini-player, offline uploads (compressed + size-capped)
-- [ ] Stage 4: Button/Toggle/Picker actions
+- [x] Stage 4: Button (link / toggle / play-pause / portal / tag-group, block or tag targets), Toggle (reacts via tags), Random picker, plus Counter, Timer, Clock, Link card
 - [ ] Stage 5: Appearance system (editor, presets, My Customs, random, inheritance, advanced)
 - [ ] Stage 6: polish (a11y, responsive sidebar/inspector, export/import)

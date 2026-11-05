@@ -192,7 +192,7 @@ export function InspectorBody({ block, onTags }: { block: Block; onTags?: () => 
   )
 }
 export function InspectorSheet({
-  block,
+  block: initial,
   onTags,
   onClose,
 }: {
@@ -200,6 +200,8 @@ export function InspectorSheet({
   onTags: () => void
   onClose: () => void
 }) {
+  const { snap } = useStore()
+  const block = snap.blocks.find((b) => b.id === initial.id) ?? initial
   return (
     <Sheet title={`Connections · ${block.title}`} onClose={onClose}>
       <InspectorBody block={block} onTags={onTags} />

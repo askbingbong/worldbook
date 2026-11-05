@@ -63,6 +63,15 @@ if (el) {
   )
 }
 
+export const getAudio = () => state
+
+/** Tracks of a Playlist block. */
+export const tracksOfBlock = (b: { content: Record<string, unknown> }): Track[] =>
+  ((b.content.items as { title: string; url: string }[]) ?? []).map((i) => ({
+    title: i.title,
+    url: i.url,
+  }))
+
 export const isPlayable = (url: string) => !!url && !youtubeId(url)
 
 export async function play(
