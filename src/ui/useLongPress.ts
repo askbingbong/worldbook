@@ -4,6 +4,7 @@ const INTERACTIVE = 'input,textarea,select,button,a,[contenteditable]'
 
 /** True when the event came from a control nested inside the element that owns the handlers. */
 const nested = (e: React.SyntheticEvent, selector = INTERACTIVE) => {
+  if (!selector) return false
   const t = (e.target as HTMLElement).closest(selector)
   return !!t && t !== e.currentTarget && e.currentTarget.contains(t)
 }

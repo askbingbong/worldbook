@@ -19,3 +19,9 @@ Judgment calls made where the spec was silent.
 - **Tags/Connections/Style/Appearance/Theme/Export** menu entries show a "arrives in Stage N" toast so the final menu shape is visible now.
 - **Portal transition**: ~400ms accent-tinted radial zoom over a zoom-in of the new space; reduced-motion users get a cross-fade only. Depth cue = one thin accent line per level (root counts as one), max 5 plus "+".
 - **Inputs** commit on blur/Enter (titles, list items) or after a 500ms pause (note text) rather than per keystroke, to keep IndexedDB writes light.
+- **Tag chip gestures**: the spec has both "tap cycles direction" and "tap highlights". Tap on a block's chip = highlight mode, long-press (or the "+N" chip) = tag sheet, where each tag's direction cycles on tap (⇄ → ←) and can be removed. Chips always show a direction glyph and the name, so color is never the only signal.
+- **Tag scope**: local tags are keyed `worldId|name`, global tags by `@name`. Color overrides are keyed by display name so a tag keeps one color everywhere.
+- **Direction semantics**: a block _sends_ through tags marked ⇄ or →, and _receives_ through ⇄ or ←. A Player plays a Playlist when the playlist sends and the player receives.
+- **Uploads** are stored as Blobs in IndexedDB and referenced as `file:<id>`. Images are re-encoded to ≤1600px (JPEG/PNG) with a 3 MB cap, GIFs 4 MB, audio/video 30 MB, each with a clear message. Orphaned files are not garbage-collected (duplicates share them).
+- **Audio** uses one module-level `<audio>` element so playback survives navigation. YouTube links can't be played inline (embed only in Media blocks); in a Playlist they open in a new tab. Video links play audio-only.
+- **Sample tunes**: the seeded Playlist uses two tiny generated WAVs so playback works offline; an existing Mango World with the old placeholder links is migrated once.

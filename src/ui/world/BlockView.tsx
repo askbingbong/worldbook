@@ -8,7 +8,13 @@ import { useWorld } from './ctx'
 import ListBody from './ListBody'
 import NoteBody from './NoteBody'
 import PortalBody from './PortalBody'
-import { MediaBody, PlaylistBody, SoonBody } from './SimpleBodies'
+import { SoonBody } from './SimpleBodies'
+import { PlayerBody, PlaylistBody } from './AudioBlocks'
+import MediaBody from './MediaBody'
+import { TagChip } from './TagUI'
+import { activeLinks, connectedPlaylist, scopeKey } from '../../model/tags'
+import { useAudioSel } from '../../store/audio'
+import { useTagIndex } from '../hooks'
 
 const LAYOUTS = ['stack', 'row', 'grid', 'tabs'] as const
 
@@ -90,14 +96,39 @@ function Body({ block }: { block: Block }) {
       return <MediaBody block={block} />
     case 'playlist':
       return <PlaylistBody block={block} />
+    case 'player':
+      return <PlayerBody block={block} />
     default:
       return <SoonBody block={block} />
   }
 }
 
 export default function BlockView({ block }: { block: Block }) {
-  const { selectedId, setSelectedId, selectMode, picked, togglePick, startSelect, openMenu } =
-    useWorld()
+  const {
+    selectedId,
+    setSelectedId,
+    selectMode,
+    picked,
+    togglePick,
+    startSelect,
+    openMenu,
+    highlight,
+    setHighlight,
+    lit,
+    openTags,
+    openInspector,
+  } = useWorld()
+  const idx = useTagIndex()
+  const linkCount = activeLinks(idx, block).length
+  const pl = block.type === 'player' ? connectedPlaylist(idx, block) : undefined
+  const playing = useAudioSel((a) =>
+    block.type === 'playlist'
+      ? a.playing && a.playlistId === block.id
+      : block.type === 'player'
+        ? a.playing && (a.owner === block.id || (!!pl && a.playlistId === pl.other.id))
+        : false,
+  )
+  const dimmed = !!lit && !lit.has(block.id)
   const meta = metaOf(block.type)
   const isPicked = picked.has(block.id)
   const selected = selectedId === block.id && !selectMode
@@ -108,7 +139,7 @@ export default function BlockView({ block }: { block: Block }) {
   if (block.type === 'divider' || block.type === 'label' || block.type === 'spacer') {
     return (
       <div
-        className={`block slim${selected ? ' selected' : ''}${isPicked ? ' picked' : ''}`}
+        className={`block slim${selected ? ' selected' : ''}${isPicked ? ' picked' : ''}${dimmed ? ' dimmed' : ''}`}
         data-block-id={block.id}
         onClickCapture={(e) => {
           if (selectMode && (e.target as HTMLElement).closest('.block') === e.currentTarget) {
@@ -149,7 +180,7 @@ export default function BlockView({ block }: { block: Block }) {
   const tags = block.tags
   return (
     <section
-      className={`block${selected ? ' selected' : ''}${isPicked ? ' picked' : ''}${block.collapsed ? ' collapsed' : ''}`}
+      className={`block${selected ? ' selected' : ''}${isPicked ? ' picked' : ''}${block.collapsed ? ' collapsed' : ''}${playing ? ' playing' : ''}${dimmed ? ' dimmed' : ''}`}
       data-block-id={block.id}
       aria-label={`${meta.label}: ${block.title}`}
       onClickCapture={(e) => {
@@ -192,12 +223,36 @@ export default function BlockView({ block }: { block: Block }) {
           {meta.icon}
         </span>
         <TitleInput block={block} />
+        {linkCount > 0 && (
+          <button
+            className="link-glyph"
+            aria-label={`Linked to ${linkCount} block${linkCount === 1 ? '' : 's'}. Show connections.`}
+            onClick={() => openInspector(block)}
+          >
+            🔗
+          </button>
+        )}
         {tags.slice(0, 2).map((t) => (
-          <span key={t.name} className="tag-chip">
-            #{t.name}
-          </span>
+          <TagChip
+            key={t.name}
+            tag={t}
+            active={highlight === scopeKey(block.worldId, t.name)}
+            onTap={() => {
+              const k = scopeKey(block.worldId, t.name)
+              setHighlight(highlight === k ? null : k)
+            }}
+            onLong={() => openTags([block.id])}
+          />
         ))}
-        {tags.length > 2 && <span className="tag-chip">+{tags.length - 2}</span>}
+        {tags.length > 2 && (
+          <button
+            className="tag-chip"
+            aria-label={`${tags.length - 2} more tags`}
+            onClick={() => openTags([block.id])}
+          >
+            +{tags.length - 2}
+          </button>
+        )}
         {!selectMode && (
           <button
             className="btn ghost icon"

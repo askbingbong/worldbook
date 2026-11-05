@@ -20,11 +20,15 @@ export function BlockMenu({
   onClose,
   onEdit,
   onMove,
+  onTags,
+  onConnections,
 }: {
   block: Block
   onClose: () => void
   onEdit: () => void
   onMove: () => void
+  onTags: () => void
+  onConnections: () => void
 }) {
   const { snap } = useStore()
   const sibs = childrenOf(snap.blocks, block.spaceId, block.parentId)
@@ -44,10 +48,10 @@ export function BlockMenu({
         <button className="btn secondary" onClick={onEdit}>
           Edit
         </button>
-        <button className="btn secondary" onClick={soon('Tags', 3)}>
+        <button className="btn secondary" onClick={onTags}>
           Tags
         </button>
-        <button className="btn secondary" onClick={soon('Connections', 3)}>
+        <button className="btn secondary" onClick={onConnections}>
           Connections
         </button>
         <div className="row">

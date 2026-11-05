@@ -3,7 +3,9 @@ import { DEFAULT_LOOK, uid } from '../model/defaults'
 import { buildSeed } from '../model/seed'
 import { updateBlock } from '../model/ops'
 import type { Block, Folder, ID, Look, Snapshot, Space, World } from '../model/types'
-import { loadAll, markSeeded, write, type StoreName, type Write } from './db'
+import { getMeta, loadAll, markSeeded, setMeta, write, type StoreName, type Write } from './db'
+import { putFile } from './files'
+import { GROOVE, makeTone, SUNNY } from '../model/tones'
 
 export interface Toast {
   id: number
@@ -18,7 +20,15 @@ interface State {
 
 let state: State = {
   ready: false,
-  snap: { worlds: [], spaces: [], blocks: [], folders: [], recents: [] },
+  snap: {
+    worlds: [],
+    spaces: [],
+    blocks: [],
+    folders: [],
+    recents: [],
+    tagColors: [],
+    customs: [],
+  },
   toast: null,
 }
 const listeners = new Set<() => void>()
@@ -46,16 +56,48 @@ function commit(next: Snapshot, w: Write) {
   write(w).catch(() => showToast('Could not save to this browser. Storage may be full.'))
 }
 
+async function makeTones(): Promise<[string, string]> {
+  return [
+    await putFile(makeTone(SUNNY), 'sunny-day.wav'),
+    await putFile(makeTone(GROOVE), 'mango-groove.wav'),
+  ]
+}
+
 export async function init() {
   const { snap, seeded } = await loadAll()
   if (!seeded && snap.worlds.length === 0) {
-    const seed = buildSeed()
+    const seed = buildSeed(await makeTones())
     await write({ put: seed })
     await markSeeded()
+    await setMeta('tonesV1', true)
     set({ snap: seed, ready: true })
-  } else {
-    set({ snap, ready: true })
+    return
   }
+  // Stage 3 migration: swap the old placeholder sample links for playable tones.
+  if (!(await getMeta('tonesV1'))) {
+    const old = snap.blocks.filter(
+      (b) =>
+        b.type === 'playlist' &&
+        ((b.content.items as { url?: string }[]) ?? []).some((i) => i.url?.includes('example.com')),
+    )
+    if (old.length) {
+      const tones = await makeTones()
+      const fixed = old.map((b) => ({
+        ...b,
+        content: {
+          ...b.content,
+          items: [
+            { id: uid(), title: 'Sunny Day (sample tune)', url: tones[0] },
+            { id: uid(), title: 'Mango Groove (sample tune)', url: tones[1] },
+          ],
+        },
+      }))
+      await write({ put: { blocks: fixed } })
+      snap.blocks = snap.blocks.map((b) => fixed.find((f) => f.id === b.id) ?? b)
+    }
+    await setMeta('tonesV1', true)
+  }
+  set({ snap, ready: true })
 }
 
 const S = () => state.snap
@@ -210,7 +252,15 @@ export const deleteWorld = (id: ID) => removeWorld(id, true)
 
 /* ---------- generic change + undo ---------- */
 
-const KEYS: StoreName[] = ['worlds', 'spaces', 'blocks', 'folders', 'recents']
+const KEYS: StoreName[] = [
+  'worlds',
+  'spaces',
+  'blocks',
+  'folders',
+  'recents',
+  'tagColors',
+  'customs',
+]
 type Rec = { id: string }
 interface Diff {
   puts: Partial<Record<StoreName, Rec[]>>

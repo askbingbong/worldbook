@@ -12,14 +12,14 @@ export interface TypeMeta {
 
 export const BLOCK_TYPES: TypeMeta[] = [
   { type: 'note', label: 'Note', icon: '📝', group: 'Content', ready: true },
-  { type: 'media', label: 'Media', icon: '🖼️', group: 'Content', ready: false },
+  { type: 'media', label: 'Media', icon: '🖼️', group: 'Content', ready: true },
   { type: 'list', label: 'List', icon: '☑️', group: 'Content', ready: true },
   { type: 'link', label: 'Link card', icon: '🔗', group: 'Content', ready: false },
   { type: 'counter', label: 'Counter', icon: '🔢', group: 'Content', ready: false },
   { type: 'timer', label: 'Timer', icon: '⏱️', group: 'Content', ready: false },
   { type: 'clock', label: 'Clock', icon: '🕒', group: 'Content', ready: false },
-  { type: 'player', label: 'Player', icon: '▶️', group: 'Audio', ready: false },
-  { type: 'playlist', label: 'Playlist', icon: '🎵', group: 'Audio', ready: false },
+  { type: 'player', label: 'Player', icon: '▶️', group: 'Audio', ready: true },
+  { type: 'playlist', label: 'Playlist', icon: '🎵', group: 'Audio', ready: true },
   { type: 'button', label: 'Button', icon: '🔘', group: 'Interactive', ready: false },
   { type: 'toggle', label: 'Toggle', icon: '🎚️', group: 'Interactive', ready: false },
   { type: 'picker', label: 'Random picker', icon: '🎲', group: 'Interactive', ready: false },

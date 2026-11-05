@@ -7,7 +7,7 @@ const mangoSvg =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180"><rect width="320" height="180" fill="#F6A623"/><circle cx="160" cy="90" r="52" fill="#FFCB47"/><text x="160" y="106" font-size="52" text-anchor="middle">🥭</text></svg>',
   )
 
-export function buildSeed(): Snapshot {
+export function buildSeed(tones: [string, string]): Snapshot {
   const now = Date.now()
   const look: Look = { ...DEFAULT_LOOK, name: 'Mango', accent: '#FFB347' }
   const worldId = uid()
@@ -69,8 +69,8 @@ export function buildSeed(): Snapshot {
     'Summer',
     {
       items: [
-        { title: 'Sunny Day (sample link)', url: 'https://example.com/sunny.mp3' },
-        { title: 'Mango Groove (sample link)', url: 'https://example.com/groove.mp3' },
+        { id: uid(), title: 'Sunny Day (sample tune)', url: tones[0] },
+        { id: uid(), title: 'Mango Groove (sample tune)', url: tones[1] },
       ],
     },
     mango,
@@ -88,5 +88,13 @@ export function buildSeed(): Snapshot {
   add(root, 'media', 'Photo', { kind: 'image', url: mangoSvg }, [], frame.id)
   add(root, 'portal', 'Beach', { style: 'card', targetSpaceId: beach.id })
   add(beach, 'note', 'Beach day', { text: 'Sand, sun and a cold mango.' })
-  return { worlds: [world], spaces: [root, beach], blocks, folders: [], recents: [] }
+  return {
+    worlds: [world],
+    spaces: [root, beach],
+    blocks,
+    folders: [],
+    recents: [],
+    tagColors: [],
+    customs: [],
+  }
 }

@@ -55,6 +55,8 @@ export interface Block {
   tags: TagRef[]
   style: Partial<Look>
   collapsed: boolean
+  /** Hidden by a Button action (or tag-group toggle). */
+  hidden?: boolean
 }
 
 export interface Space {
@@ -93,10 +95,30 @@ export interface RecentPortal {
   at: number
 }
 
+/** Per-tag color override. id = tag display name (including "@" for global tags). */
+export interface TagColor {
+  id: string
+  color: string
+}
+
+/** A saved look in "My Customs". Worlds keep their own COPY of the look values. */
+export interface Custom {
+  id: ID
+  name: string
+  look: Look
+  includeInRandom: boolean
+  order: number
+  createdAt: number
+  lastUsed: number
+  uses: number
+}
+
 export interface Snapshot {
   worlds: World[]
   spaces: Space[]
   blocks: Block[]
   folders: Folder[]
   recents: RecentPortal[]
+  tagColors: TagColor[]
+  customs: Custom[]
 }

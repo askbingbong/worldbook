@@ -17,6 +17,8 @@ import BlockView from './BlockView'
 import { Ctx } from './ctx'
 import { BlockMenu, EditSheet, MoveIntoSheet } from './ManageSheets'
 import { PathSheet, RenameSheet, SearchSheet, WorldMenu } from './NavSheets'
+import { InspectorSheet, TagManager, TagsSheet } from './TagUI'
+import { scopeKey } from '../../model/tags'
 import { BlockPicker, PortalSetup, rememberType, type InsertTarget } from './PickerSheets'
 
 type Sheetstate =
@@ -29,6 +31,9 @@ type Sheetstate =
   | { k: 'worldMenu' }
   | { k: 'search' }
   | { k: 'path' }
+  | { k: 'tags'; ids: ID[] }
+  | { k: 'tagManager' }
+  | { k: 'inspector'; block: Block }
   | null
 
 export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?: ID }) {
@@ -46,6 +51,9 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
   const [scrollTo, setScrollTo] = useState<ID | null>(null)
   // The finger-lift after a long press fires a click on the same block; ignore it.
   const selectGuard = useRef(0)
+  const [highlight, setHighlight] = useState<string | null>(null)
+  // A jump (search / tag manager) selects its target once the destination space is showing.
+  const pendingSelect = useRef<ID | null>(null)
 
   useEffect(() => {
     if (world) visitWorld(world.id)
@@ -54,9 +62,13 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
   // Reset transient UI when the space changes.
   const sid = space?.id
   useEffect(() => {
-    setSelectedId(null)
+    const pending = pendingSelect.current
+    pendingSelect.current = null
+    setSelectedId(pending)
+    if (pending) setScrollTo(pending)
     setSelectMode(false)
     setPicked(new Set())
+    setHighlight(null)
   }, [sid])
 
   useEffect(() => {
@@ -70,6 +82,34 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
   }, [scrollTo, snap.blocks, sid])
 
   const path = useMemo(() => (space ? spacePath(snap, space.id) : []), [snap, space])
+
+  /** Blocks that stay bright while a tag is highlighted: matches plus the frames holding them. */
+  const lit = useMemo(() => {
+    if (!highlight || !space) return null
+    const ids = new Set<ID>()
+    const byId = new Map(snap.blocks.map((b) => [b.id, b]))
+    for (const b of snap.blocks) {
+      if (b.spaceId !== space.id || !b.tags.some((t) => scopeKey(b.worldId, t.name) === highlight))
+        continue
+      let cur: Block | undefined = b
+      while (cur) {
+        ids.add(cur.id)
+        cur = cur.parentId ? byId.get(cur.parentId) : undefined
+      }
+    }
+    return ids
+  }, [highlight, snap.blocks, space])
+
+  const jumpTo = (b: Block) => {
+    if (space && (b.spaceId !== space.id || b.worldId !== worldId)) {
+      pendingSelect.current = b.id
+      go(worldPath(b.worldId, b.spaceId))
+    } else {
+      setSelectedId(b.id)
+      setScrollTo(b.id)
+    }
+    setSheet(null)
+  }
 
   const enterSpace = useCallback(
     (id: ID) => {
@@ -177,7 +217,7 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
         <span aria-hidden>＋</span>
         <span>Add</span>
       </button>
-      <button className="nav-btn" onClick={() => showToast('Tags arrive in Stage 3.')}>
+      <button className="nav-btn" onClick={() => setSheet({ k: 'tagManager' })}>
         <span aria-hidden>#</span>
         <span>Tags</span>
       </button>
@@ -219,6 +259,11 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
         openMenu: (b) => setSheet({ k: 'menu', block: b }),
         openPicker: (p) => setSheet({ k: 'picker', parentId: p }),
         enterSpace,
+        highlight,
+        setHighlight,
+        lit,
+        openTags: (ids) => setSheet({ k: 'tags', ids }),
+        openInspector: (b) => setSheet({ k: 'inspector', block: b }),
       }}
     >
       <div
@@ -274,6 +319,14 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
             </nav>
           </header>
 
+          {highlight && (
+            <div className="hl-banner" role="status">
+              Highlighting {highlight.includes('|') ? '#' + highlight.split('|')[1] : highlight}
+              <button className="btn secondary small" onClick={() => setHighlight(null)}>
+                Clear
+              </button>
+            </div>
+          )}
           <main className="page world-page">
             <div key={space.id} className="space-enter">
               {blocks.length === 0 ? (
@@ -305,7 +358,10 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
             >
               Move into
             </button>
-            <button className="btn secondary" onClick={() => showToast('Tags arrive in Stage 3.')}>
+            <button
+              className="btn secondary"
+              onClick={needPick(() => setSheet({ k: 'tags', ids: pickedIds }))}
+            >
               Tag
             </button>
             <button
@@ -373,6 +429,8 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
             onClose={close}
             onEdit={() => setSheet({ k: 'edit', block: sheet.block })}
             onMove={() => setSheet({ k: 'move', ids: [sheet.block.id] })}
+            onTags={() => setSheet({ k: 'tags', ids: [sheet.block.id] })}
+            onConnections={() => setSheet({ k: 'inspector', block: sheet.block })}
           />
         )}
         {sheet?.k === 'edit' && <EditSheet block={sheet.block} onClose={close} />}
@@ -388,19 +446,21 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
             }}
           />
         )}
+        {sheet?.k === 'tags' && <TagsSheet blockIds={sheet.ids} onClose={close} />}
+        {sheet?.k === 'tagManager' && (
+          <TagManager worldId={world.id} onJump={jumpTo} onClose={close} />
+        )}
+        {sheet?.k === 'inspector' && (
+          <InspectorSheet
+            block={sheet.block}
+            onClose={close}
+            onTags={() => setSheet({ k: 'tags', ids: [sheet.block.id] })}
+          />
+        )}
         {sheet?.k === 'rename' && <RenameSheet world={world} space={space} onClose={close} />}
         {sheet?.k === 'worldMenu' && <WorldMenu onClose={close} onSelect={() => startSelect()} />}
         {sheet?.k === 'search' && (
-          <SearchSheet
-            worldId={world.id}
-            onClose={close}
-            onJump={(b) => {
-              if (b.spaceId !== space.id) go(worldPath(world.id, b.spaceId))
-              setSelectedId(b.id)
-              setScrollTo(b.id)
-              close()
-            }}
-          />
+          <SearchSheet worldId={world.id} onClose={close} onJump={jumpTo} />
         )}
         {sheet?.k === 'path' && (
           <PathSheet
