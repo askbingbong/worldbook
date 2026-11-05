@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from 'react'
-import { kindOf, type MediaKind } from '../lib/media'
+import { kindOf } from '../lib/media'
 import { resolveUrl } from './files'
 
+/** Audio only. Images, video and YouTube are handled by slideshows (see Slideshow.tsx). */
 export interface Track {
   title: string
   url: string
@@ -9,8 +10,6 @@ export interface Track {
   mime?: string
 }
 export type Loop = 'off' | 'all' | 'one'
-/** 'av' = only audio/video entries (Player blocks); 'all' = also images and YouTube (Media / Playlist views) */
-export type Filter = 'av' | 'all'
 
 export interface AudioState {
   /** block that started this playback (null when started from a playlist itself) */
@@ -18,9 +17,8 @@ export interface AudioState {
   playlistId: string | null
   queue: Track[]
   index: number
-  kind: MediaKind | null
-  filter: Filter
   loop: Loop
+  shuffle: boolean
   playing: boolean
   loading: boolean
   time: number
@@ -29,13 +27,18 @@ export interface AudioState {
   error: string | null
 }
 
-const LOOP_KEY = 'wb.loop'
-function savedLoop(): Loop {
+const read = (k: string) => {
   try {
-    const v = localStorage.getItem(LOOP_KEY)
-    return v === 'all' || v === 'one' ? v : 'off'
+    return localStorage.getItem(k)
   } catch {
-    return 'off'
+    return null
+  }
+}
+const write = (k: string, v: string) => {
+  try {
+    localStorage.setItem(k, v)
+  } catch {
+    /* optional convenience */
   }
 }
 
@@ -44,9 +47,8 @@ const initial: AudioState = {
   playlistId: null,
   queue: [],
   index: 0,
-  kind: null,
-  filter: 'av',
-  loop: savedLoop(),
+  loop: read('wb.loop') === 'all' ? 'all' : read('wb.loop') === 'one' ? 'one' : 'off',
+  shuffle: read('wb.shuffle') === '1',
   playing: false,
   loading: false,
   time: 0,
@@ -61,92 +63,75 @@ const set = (p: Partial<AudioState>) => {
   listeners.forEach((l) => l())
 }
 
-/** One shared element so playback survives navigation. It's a <video> so it can play audio too;
- *  Media blocks attach it to the page to show video, otherwise it plays detached (audio only). */
-export const mediaEl: HTMLVideoElement | null =
-  typeof document !== 'undefined' ? document.createElement('video') : null
-const isAV = () => state.kind === 'audio' || state.kind === 'video'
-export const SLIDE_SECONDS = 5
-let slide: number | undefined
-const clearSlide = () => {
-  window.clearTimeout(slide)
-  slide = undefined
-}
-function startSlide() {
-  clearSlide()
-  slide = window.setTimeout(
-    () => (state.loop === 'one' ? startSlide() : next()),
-    SLIDE_SECONDS * 1000,
-  )
+/** Shared-shuffle bookkeeping: a "bag" of indices not yet played, and a history for Previous. */
+let bag: number[] = []
+let history: number[] = []
+const refill = (except: number) => {
+  bag = state.queue.map((_, i) => i).filter((i) => i !== except)
+  for (let i = bag.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[bag[i], bag[j]] = [bag[j], bag[i]]
+  }
 }
 
-if (mediaEl) {
-  const el = mediaEl
+/** One shared element so playback survives navigation. A <video> element can play audio from video files too. */
+const el: HTMLMediaElement | null =
+  typeof document !== 'undefined' ? document.createElement('video') : null
+if (el) {
   el.preload = 'auto'
-  el.playsInline = true
-  el.setAttribute('playsinline', '')
-  el.addEventListener('play', () => isAV() && set({ playing: true }))
-  el.addEventListener('playing', () => isAV() && set({ playing: true, loading: false }))
-  el.addEventListener('pause', () => isAV() && set({ playing: false }))
-  el.addEventListener('waiting', () => isAV() && set({ loading: true }))
+  el.addEventListener('play', () => set({ playing: true }))
+  el.addEventListener('playing', () => set({ playing: true, loading: false }))
+  el.addEventListener('pause', () => set({ playing: false }))
+  el.addEventListener('waiting', () => set({ loading: true }))
   el.addEventListener('timeupdate', () => {
-    if (isAV() && Math.abs(el.currentTime - state.time) >= 0.25) set({ time: el.currentTime })
+    if (Math.abs(el.currentTime - state.time) >= 0.25) set({ time: el.currentTime })
   })
-  el.addEventListener(
-    'durationchange',
-    () => isAV() && set({ duration: Number.isFinite(el.duration) ? el.duration : 0 }),
+  el.addEventListener('durationchange', () =>
+    set({ duration: Number.isFinite(el.duration) ? el.duration : 0 }),
   )
-  el.addEventListener('ended', () => isAV() && next())
+  el.addEventListener('ended', () => next())
   el.addEventListener('error', () => {
-    if (!el.getAttribute('src') || !isAV()) return
+    if (!el.getAttribute('src')) return
     set({
       playing: false,
       loading: false,
-      error: 'This file could not be played. Check the file or link.',
+      error: 'This audio could not be played. Check the file or link.',
     })
   })
 }
 
-const dropSource = () => {
-  if (!mediaEl) return
-  mediaEl.pause()
-  mediaEl.removeAttribute('src')
-  mediaEl.load()
+export const isAvTrack = (t: Track) => {
+  const k = kindOf(t)
+  return k === 'audio' || k === 'video'
 }
 
 export async function play(
   queue: Track[],
   index: number,
-  meta: { owner: string | null; playlistId: string | null; filter?: Filter },
+  meta: { owner: string | null; playlistId: string | null },
 ) {
   const t = queue[index]
-  if (!mediaEl || !t) return
-  const kind = kindOf(t)
-  clearSlide()
+  if (!el || !t) return
+  const fresh = state.queue !== queue
   set({
     queue,
     index,
-    kind,
     owner: meta.owner,
     playlistId: meta.playlistId,
-    filter: meta.filter ?? state.filter,
     error: null,
-    loading: kind === 'audio' || kind === 'video',
+    loading: true,
     time: 0,
-    duration: kind === 'image' ? SLIDE_SECONDS : 0,
+    duration: 0,
   })
-  if (kind === 'image' || kind === 'youtube') {
-    dropSource()
-    set({ playing: kind === 'image', loading: false })
-    if (kind === 'image') startSlide()
-    updateSession()
-    return
+  if (fresh) {
+    history = []
+    refill(index)
   }
   try {
-    mediaEl.loop = state.loop === 'one'
-    mediaEl.src = await resolveUrl(t.url)
-    mediaEl.playbackRate = state.rate
-    await mediaEl.play()
+    el.loop = state.loop === 'one'
+    el.src = await resolveUrl(t.url)
+    el.playbackRate = state.rate
+    await el.play()
     updateSession()
   } catch (e) {
     set({
@@ -158,78 +143,67 @@ export async function play(
 }
 
 export function toggle() {
-  if (!mediaEl) return
-  if (state.kind === 'image') {
-    if (state.playing) {
-      clearSlide()
-      set({ playing: false })
-    } else {
-      set({ playing: true })
-      startSlide()
-    }
-  } else if (isAV() && mediaEl.getAttribute('src')) {
-    if (mediaEl.paused) mediaEl.play().catch(() => set({ error: 'Could not start playback.' }))
-    else mediaEl.pause()
-  }
+  if (!el || !el.getAttribute('src')) return
+  if (el.paused) el.play().catch(() => set({ error: 'Could not start playback.' }))
+  else el.pause()
 }
 export const seek = (t: number) => {
-  if (mediaEl && isAV() && mediaEl.getAttribute('src'))
-    mediaEl.currentTime = Math.max(0, Math.min(t, mediaEl.duration || t))
+  if (el && el.getAttribute('src')) el.currentTime = Math.max(0, Math.min(t, el.duration || t))
 }
-export const skip = (d: number) => mediaEl && isAV() && seek(mediaEl.currentTime + d)
+export const skip = (d: number) => el && seek(el.currentTime + d)
 export function setRate(r: number) {
-  if (mediaEl) mediaEl.playbackRate = r
+  if (el) el.playbackRate = r
   set({ rate: r })
 }
 
-/** Cycle Off → Loop all → Loop current. */
+/** Off → Loop all → Loop current. */
 export function setLoop(l: Loop) {
   set({ loop: l })
-  if (mediaEl) mediaEl.loop = l === 'one' && isAV()
-  try {
-    localStorage.setItem(LOOP_KEY, l)
-  } catch {
-    /* optional convenience */
-  }
+  if (el) el.loop = l === 'one'
+  write('wb.loop', l)
 }
 export const nextLoop = (l: Loop): Loop => (l === 'off' ? 'all' : l === 'all' ? 'one' : 'off')
-
-const matches = (t: Track) => {
-  const k = kindOf(t)
-  return state.filter === 'all' || k === 'audio' || k === 'video'
+export function setShuffle(on: boolean) {
+  set({ shuffle: on })
+  if (on) refill(state.index)
+  write('wb.shuffle', on ? '1' : '0')
 }
-/** Next index in the given direction, wrapping when looping the whole list. -1 = nothing to play. */
-function step(dir: 1 | -1): number {
-  const n = state.queue.length
-  for (let c = 1; c <= n; c++) {
-    let i = state.index + dir * c
-    if (i < 0 || i >= n) {
-      if (state.loop !== 'all') return -1
-      i = ((i % n) + n) % n
-    }
-    if (matches(state.queue[i])) return i
-  }
-  return -1
+
+function go(i: number, pushHistory: boolean) {
+  if (pushHistory) history.push(state.index)
+  void play(state.queue, i, { owner: state.owner, playlistId: state.playlistId })
 }
 export function next() {
-  const i = step(1)
-  if (i >= 0) void play(state.queue, i, { owner: state.owner, playlistId: state.playlistId })
-  else {
-    clearSlide()
-    if (mediaEl && isAV()) mediaEl.pause()
-    set({ playing: false })
+  const n = state.queue.length
+  if (!n) return
+  if (state.shuffle && n > 1) {
+    if (!bag.length && state.loop === 'all') refill(state.index)
+    const i = bag.shift()
+    if (i !== undefined) return go(i, true)
+  } else {
+    const i = state.index + 1
+    if (i < n) return go(i, true)
+    if (state.loop === 'all') return go(0, true)
   }
+  if (state.loop === 'all' && n === 1) return go(0, false)
+  el?.pause()
+  set({ playing: false })
 }
 export function prev() {
-  if (mediaEl && isAV() && mediaEl.currentTime > 3) return seek(0)
-  const i = step(-1)
-  if (i >= 0) void play(state.queue, i, { owner: state.owner, playlistId: state.playlistId })
+  if (el && el.currentTime > 3) return seek(0)
+  if (state.shuffle && history.length) return go(history.pop()!, false)
+  const i = state.index - 1
+  if (i >= 0) return go(i, false)
+  if (state.loop === 'all' && state.queue.length) return go(state.queue.length - 1, false)
 }
 export function stop() {
-  clearSlide()
-  state = { ...state, kind: null }
-  dropSource()
-  set({ ...initial, rate: state.rate, loop: state.loop })
+  if (!el) return
+  el.pause()
+  el.removeAttribute('src')
+  el.load()
+  history = []
+  bag = []
+  set({ ...initial, rate: state.rate, loop: state.loop, shuffle: state.shuffle })
 }
 
 function updateSession() {
@@ -251,17 +225,15 @@ function updateSession() {
 
 export const getAudio = () => state
 
-/** Tracks of a Playlist block. */
+/** Playable (audio/video-sound) tracks of a Playlist block. Images and YouTube are not part of audio playback. */
 export const tracksOfBlock = (b: { content: Record<string, unknown> }): Track[] =>
   ((b.content.items as { title: string; url: string; mime?: string }[]) ?? []).map((i) => ({
     title: i.title,
     url: i.url,
     mime: i.mime,
   }))
-export const isAvTrack = (t: Track) => {
-  const k = kindOf(t)
-  return k === 'audio' || k === 'video'
-}
+export const avTracksOf = (b: { content: Record<string, unknown> }): Track[] =>
+  tracksOfBlock(b).filter(isAvTrack)
 
 const sub = (l: () => void) => {
   listeners.add(l)

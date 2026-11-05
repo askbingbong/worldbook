@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { installApp, isIos, isStandalone, storageInfo, useCanInstall } from '../lib/pwa'
 import { exportAll, importFile } from '../lib/exportImport'
 import { searchWorlds } from '../model/search'
 import type { World } from '../model/types'
@@ -8,18 +9,54 @@ import WorldActions from './WorldActions'
 import WorldCard, { ago } from './WorldCard'
 import { go } from './router'
 
+const fmtBytes = (n: number) =>
+  n > 1e9
+    ? `${(n / 1e9).toFixed(1)} GB`
+    : n > 1e6
+      ? `${(n / 1e6).toFixed(1)} MB`
+      : `${Math.max(1, Math.round(n / 1e3))} KB`
+
 export default function Library() {
   const { snap } = useStore()
   const [query, setQuery] = useState('')
   const [menuFor, setMenuFor] = useState<World | null>(null)
   const [libMenu, setLibMenu] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const canInstall = useCanInstall()
+  const [info, setInfo] = useState<{ used: number; quota: number; persisted: boolean } | null>(null)
+  type Sort = 'recent' | 'name' | 'newest'
+  const [sort, setSort] = useState<Sort>(() => {
+    try {
+      const v = localStorage.getItem('wb.libSort')
+      return v === 'name' || v === 'newest' ? v : 'recent'
+    } catch {
+      return 'recent'
+    }
+  })
+  const chooseSort = (v: Sort) => {
+    setSort(v)
+    try {
+      localStorage.setItem('wb.libSort', v)
+    } catch {
+      /* optional convenience */
+    }
+  }
+  useEffect(() => {
+    if (libMenu) void storageInfo().then(setInfo)
+  }, [libMenu])
 
   const worlds = useMemo(() => searchWorlds(snap, query), [snap, query])
   const searching = query.trim() !== ''
   const pinned = worlds.filter((w) => w.pinned)
   const rest = worlds.filter((w) => !w.pinned)
-  const sorted = (l: World[]) => [...l].sort((a, b) => b.lastVisited - a.lastVisited)
+  const sorted = (l: World[]) =>
+    [...l].sort((a, b) =>
+      sort === 'name'
+        ? a.title.localeCompare(b.title)
+        : sort === 'newest'
+          ? b.createdAt - a.createdAt
+          : b.lastVisited - a.lastVisited,
+    )
 
   const open = (w: World) => {
     visitWorld(w.id)
@@ -55,6 +92,26 @@ export default function Library() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
+      {snap.worlds.length > 1 && (
+        <div className="seg sort-seg" role="group" aria-label="Sort worlds">
+          {(
+            [
+              ['recent', 'Recent'],
+              ['name', 'A–Z'],
+              ['newest', 'Newest'],
+            ] as const
+          ).map(([v, l]) => (
+            <button
+              key={v}
+              className={sort === v ? 'on' : ''}
+              aria-pressed={sort === v}
+              onClick={() => chooseSort(v)}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      )}
 
       {snap.worlds.length === 0 && (
         <div className="empty">
@@ -148,6 +205,27 @@ export default function Library() {
             <button className="btn secondary" onClick={() => fileRef.current?.click()}>
               Import from a file…
             </button>
+            {canInstall && (
+              <button className="btn secondary" onClick={() => void installApp()}>
+                📲 Install Worldbook
+              </button>
+            )}
+            {!canInstall && !isStandalone() && (
+              <p className="dim small">
+                {isIos()
+                  ? 'To install: tap Share, then “Add to Home Screen”. It then works offline like an app.'
+                  : 'Tip: use your browser’s “Install app” / “Add to Home Screen” option. It then works offline like an app.'}
+              </p>
+            )}
+            {info && (
+              <p className="dim small">
+                Storage: {fmtBytes(info.used)} used{info.quota ? ` of ${fmtBytes(info.quota)}` : ''}
+                .{' '}
+                {info.persisted
+                  ? 'Protected from automatic cleanup.'
+                  : 'The browser may clear it if your device runs low on space: export a backup now and then.'}
+              </p>
+            )}
           </div>
         </Sheet>
       )}

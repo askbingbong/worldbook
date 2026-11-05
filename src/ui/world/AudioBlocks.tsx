@@ -5,6 +5,7 @@ import { updateBlock } from '../../model/ops'
 import { connectedPlaylist, tagLabel, targetsOf } from '../../model/tags'
 import type { Block } from '../../model/types'
 import {
+  avTracksOf,
   isAvTrack,
   next,
   nextLoop,
@@ -13,6 +14,7 @@ import {
   seek,
   setLoop,
   setRate,
+  setShuffle,
   skip,
   stop,
   toggle,
@@ -20,9 +22,10 @@ import {
   useAudio,
   type Track,
 } from '../../store/audio'
+import { jumpTo } from '../../store/slides'
 import { change, setContent, showToast } from '../../store/store'
 import { useTagIndex } from '../hooks'
-import Stage from './MediaStage'
+import Slideshow, { FRAME_DEFAULTS, settingsOf } from './Slideshow'
 
 const fmt = (t: number) => {
   if (!Number.isFinite(t) || t < 0) t = 0
@@ -57,8 +60,21 @@ export function LoopButton({ compact }: { compact?: boolean }) {
     </button>
   )
 }
+export function ShuffleButton({ compact }: { compact?: boolean }) {
+  const a = useAudio()
+  return (
+    <button
+      className={`btn ghost speed${a.shuffle ? ' on' : ''}`}
+      aria-label={`Shuffle: ${a.shuffle ? 'on' : 'off'}. Tap to change.`}
+      aria-pressed={a.shuffle}
+      onClick={() => setShuffle(!a.shuffle)}
+    >
+      🔀{!compact && <span> {a.shuffle ? 'On' : 'Off'}</span>}
+    </button>
+  )
+}
 
-/** Shared transport: play/pause, ±10s, scrub, speed, loop (+ prev/next for lists). */
+/** Shared transport: play/pause, ±10s, scrub, speed, loop, shuffle (+ prev/next for lists). */
 export function Transport({
   active,
   queueLen,
@@ -70,20 +86,24 @@ export function Transport({
 }) {
   const a = useAudio()
   const live = active && !!a.queue.length
-  const timed = live && (a.kind === 'audio' || a.kind === 'video')
   const rate = a.rate
   return (
     <div className="transport">
       <div className="t-row">
         {queueLen > 1 && (
-          <button className="btn ghost icon" aria-label="Previous" disabled={!live} onClick={prev}>
+          <button
+            className="btn ghost icon"
+            aria-label="Previous track"
+            disabled={!live}
+            onClick={prev}
+          >
             ⏮
           </button>
         )}
         <button
           className="btn ghost icon"
           aria-label="Back 10 seconds"
-          disabled={!timed}
+          disabled={!live}
           onClick={() => skip(-10)}
         >
           ↺10
@@ -99,13 +119,18 @@ export function Transport({
         <button
           className="btn ghost icon"
           aria-label="Forward 10 seconds"
-          disabled={!timed}
+          disabled={!live}
           onClick={() => skip(10)}
         >
           10↻
         </button>
         {queueLen > 1 && (
-          <button className="btn ghost icon" aria-label="Next" disabled={!live} onClick={next}>
+          <button
+            className="btn ghost icon"
+            aria-label="Next track"
+            disabled={!live}
+            onClick={next}
+          >
             ⏭
           </button>
         )}
@@ -114,32 +139,27 @@ export function Transport({
         <button
           className="btn ghost speed"
           aria-label={`Speed ${rate} times. Tap to change.`}
-          disabled={!timed && live}
           onClick={() => setRate(RATES[(RATES.indexOf(rate) + 1) % RATES.length])}
         >
           {rate}×
         </button>
         <LoopButton />
-        {live && a.kind === 'image' && (
-          <span className="dim small">Slideshow advances every 5 s</span>
-        )}
+        {queueLen > 1 && <ShuffleButton />}
       </div>
-      {a.kind !== 'image' && (
-        <div className="t-row scrub">
-          <span className="dim small">{fmt(timed ? a.time : 0)}</span>
-          <input
-            type="range"
-            aria-label="Seek"
-            min={0}
-            max={Math.max(1, Math.floor(timed ? a.duration : 0))}
-            step={1}
-            value={timed ? Math.min(a.time, a.duration || a.time) : 0}
-            disabled={!timed}
-            onChange={(e) => seek(Number(e.target.value))}
-          />
-          <span className="dim small">{fmt(timed ? a.duration : 0)}</span>
-        </div>
-      )}
+      <div className="t-row scrub">
+        <span className="dim small">{fmt(live ? a.time : 0)}</span>
+        <input
+          type="range"
+          aria-label="Seek"
+          min={0}
+          max={Math.max(1, Math.floor(live ? a.duration : 0))}
+          step={1}
+          value={live ? Math.min(a.time, a.duration || a.time) : 0}
+          disabled={!live}
+          onChange={(e) => seek(Number(e.target.value))}
+        />
+        <span className="dim small">{fmt(live ? a.duration : 0)}</span>
+      </div>
       {live && a.error && <p className="insp-warn">⚠ {a.error}</p>}
     </div>
   )
@@ -202,9 +222,11 @@ export function PlayerBody({ block }: { block: Block }) {
   const link = connectedPlaylist(idx, block)
   const own = String(block.content.url ?? '')
   const ownName = String(block.content.name ?? 'Audio')
-  const ownTracks: Track[] = own ? [{ title: ownName, url: own }] : []
-  const queue = link ? tracksOf(link.other) : ownTracks
-  const avCount = queue.filter(isAvTrack).length
+  const queue: Track[] = link
+    ? avTracksOf(link.other)
+    : own
+      ? [{ title: ownName, url: own, mime: String(block.content.mime ?? '') }]
+      : []
   const active = a.owner === block.id || (!!link && a.playlistId === link.other.id)
 
   let source = 'From: own file'
@@ -212,18 +234,22 @@ export function PlayerBody({ block }: { block: Block }) {
   else if (own && !own.startsWith('file:')) source = 'From: own link'
   else if (block.tags.length && !own) source = 'From: own file (no matching playlist yet)'
 
-  const first = queue.findIndex(isAvTrack)
-  const startFrom = (i = first) =>
-    void play(queue, i, { owner: block.id, playlistId: link ? link.other.id : null, filter: 'av' })
-  const shown = active ? a.queue[a.index] : queue[first]
-
+  const shown = active ? a.queue[a.index] : queue[0]
   return (
     <div className="stack">
       <p className="source-line">{source}</p>
       {shown && <p className="now">♪ {shown.title}</p>}
-      <Transport active={active} queueLen={avCount} onStart={() => startFrom()} />
-      {link && avCount === 0 && (
-        <p className="dim small">That playlist has no audio or video yet.</p>
+      <Transport
+        active={active}
+        queueLen={queue.length}
+        onStart={() =>
+          void play(queue, 0, { owner: block.id, playlistId: link ? link.other.id : null })
+        }
+      />
+      {link && queue.length === 0 && (
+        <p className="dim small">
+          That playlist has no audio yet. Pictures and videos show in a Media block.
+        </p>
       )}
       {!link && (
         <details>
@@ -250,10 +276,14 @@ export function PlayerBody({ block }: { block: Block }) {
 const kindWord: Record<MediaKind, string> = {
   audio: 'audio',
   video: 'video',
-  image: 'image',
+  image: 'picture',
   youtube: 'YouTube',
 }
 
+/**
+ * A playlist holds anything: audio plays through the player (and the mini-player); pictures, videos and
+ * YouTube links play as an autoplaying slideshow that never shows in the mini-player.
+ */
 export function PlaylistBody({ block }: { block: Block }) {
   const idx = useTagIndex()
   const a = useAudio()
@@ -263,15 +293,15 @@ export function PlaylistBody({ block }: { block: Block }) {
   const [url, setUrl] = useState('')
   const file = useRef<HTMLInputElement>(null)
   const tracks = tracksOf(block)
+  const av = avTracksOf(block)
   const here = a.playlistId === block.id
-  const cur = here ? a.queue[a.index] : undefined
+  const curUrl = here ? a.queue[a.index]?.url : undefined
+  const hasVisual = tracks.some((t) => kindOf(t) !== 'audio')
 
-  // A connected Media block (same space) is the "screen"; otherwise this playlist shows the media itself.
+  // A connected Media block (same space) is the "screen"; otherwise this playlist shows the slideshow itself.
   const viewers = targetsOf(idx, block)
     .filter((l) => l.other.type === 'media' && l.other.spaceId === block.spaceId)
     .map((l) => l.other)
-  const hasVisual = tracks.some((t) => kindOf(t) !== 'audio')
-  const stageTrack = cur ?? tracks.find((t) => kindOf(t) !== 'audio')
 
   const save = (n: Item[]) => setContent(block.id, { items: n })
   const addLink = () => {
@@ -286,19 +316,39 @@ export function PlaylistBody({ block }: { block: Block }) {
     ;[n[i], n[i + d]] = [n[i + d], n[i]]
     save(n)
   }
-  const startAt = (i: number) =>
-    void play(tracks, i, { owner: null, playlistId: block.id, filter: 'all' })
+  const open = (i: number) => {
+    const t = tracks[i]
+    if (isAvTrack(t) && kindOf(t) === 'audio')
+      void play(
+        av,
+        av.findIndex((x) => x.url === t.url),
+        { owner: null, playlistId: block.id },
+      )
+    else jumpTo(block.id, i)
+  }
 
   return (
     <div className="stack">
       {viewers.length > 0 && (
-        <p className="source-line">Showing on: {viewers.map((v) => v.title).join(', ')}</p>
+        <p className="source-line">
+          Pictures and videos show on: {viewers.map((v) => v.title).join(', ')}
+        </p>
       )}
-      {viewers.length === 0 && hasVisual && stageTrack && (
-        <Stage track={stageTrack} active={here} />
+      {viewers.length === 0 && hasVisual && (
+        <Slideshow
+          tracks={tracks}
+          playlistId={block.id}
+          holderId={block.id}
+          settings={settingsOf(block.content, FRAME_DEFAULTS)}
+          label={`${block.title} slideshow`}
+        />
       )}
-      {tracks.length > 0 && (
-        <Transport active={here} queueLen={tracks.length} onStart={() => startAt(0)} />
+      {av.length > 0 && (
+        <Transport
+          active={here}
+          queueLen={av.length}
+          onStart={() => void play(av, 0, { owner: null, playlistId: block.id })}
+        />
       )}
       {items.length > 1 && (
         <button
@@ -312,19 +362,16 @@ export function PlaylistBody({ block }: { block: Block }) {
       <ol className="playlist">
         {items.map((it, i) => {
           const kind = kindOf(it)
-          const now = here && a.index === i && !!a.queue.length
+          const now = here && curUrl === it.url && kind !== 'image' && kind !== 'youtube'
           return (
             <li key={it.id} className={now ? 'now-playing' : ''}>
               <span
                 className="np"
-                aria-label={now ? (a.playing ? 'Now playing' : 'Current item') : undefined}
+                aria-label={now ? (a.playing ? 'Now playing' : 'Current track') : undefined}
               >
                 {now ? (a.playing ? '▶' : '⏸') : i + 1}
               </span>
-              <button
-                className="track"
-                onClick={() => (now ? (kind === 'youtube' ? undefined : toggle()) : startAt(i))}
-              >
+              <button className="track" onClick={() => (now ? toggle() : open(i))}>
                 <span aria-hidden className="kind-icon">
                   {KIND_ICON[kind]}
                 </span>
@@ -373,7 +420,7 @@ export function PlaylistBody({ block }: { block: Block }) {
         })}
       </ol>
       {!items.length && (
-        <p className="dim">Nothing here yet. Add audio, video, images or links (YouTube too).</p>
+        <p className="dim">Nothing here yet. Add audio, pictures, videos or links (YouTube too).</p>
       )}
       <input
         ref={file}
@@ -399,7 +446,7 @@ export function PlaylistBody({ block }: { block: Block }) {
         }}
       />
       <button className="btn secondary" onClick={() => file.current?.click()}>
-        ⬆ Add files (audio, video, images)
+        ⬆ Add files (audio, pictures, video)
       </button>
       <form
         className="stack"
@@ -411,7 +458,7 @@ export function PlaylistBody({ block }: { block: Block }) {
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Title (optional)"
+          placeholder="Title or caption (optional)"
           aria-label="Item title"
         />
         <div className="row">
@@ -419,7 +466,7 @@ export function PlaylistBody({ block }: { block: Block }) {
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="Paste a link: audio, video, image or YouTube"
+            placeholder="Paste a link: audio, picture, video or YouTube"
             aria-label="Item link"
           />
           <button className="btn secondary">Add</button>
@@ -430,45 +477,32 @@ export function PlaylistBody({ block }: { block: Block }) {
   )
 }
 
-/** Docks above the bottom bar while something is loaded; keeps playing across portals and the Library. */
+/** Docks above the bottom bar while audio is loaded; keeps playing across portals and the Library. Audio only. */
 export function MiniPlayer() {
   const a = useAudio()
   if (!a.queue.length) return null
   const t = a.queue[a.index]
-  const timed = a.kind === 'audio' || a.kind === 'video'
   return (
-    <div className="mini-player" role="region" aria-label="Media player">
-      <button
-        className="btn ghost icon"
-        aria-label={a.playing ? 'Pause' : 'Play'}
-        onClick={toggle}
-        disabled={a.kind === 'youtube'}
-      >
+    <div className="mini-player" role="region" aria-label="Audio player">
+      <button className="btn ghost icon" aria-label={a.playing ? 'Pause' : 'Play'} onClick={toggle}>
         {a.playing ? '⏸' : '▶'}
       </button>
       <div className="mini-title">
-        <span>
-          {a.kind ? KIND_ICON[a.kind] : '♪'} {t?.title}
-        </span>
-        {timed ? (
-          <input
-            type="range"
-            aria-label="Seek"
-            min={0}
-            max={Math.max(1, Math.floor(a.duration))}
-            step={1}
-            value={Math.min(a.time, a.duration || a.time)}
-            onChange={(e) => seek(Number(e.target.value))}
-          />
-        ) : (
-          <small className="dim">
-            {a.kind === 'image' ? 'Slideshow' : 'Open its block to watch'}
-          </small>
-        )}
+        <span>♪ {t?.title}</span>
+        <input
+          type="range"
+          aria-label="Seek"
+          min={0}
+          max={Math.max(1, Math.floor(a.duration))}
+          step={1}
+          value={Math.min(a.time, a.duration || a.time)}
+          onChange={(e) => seek(Number(e.target.value))}
+        />
       </div>
       <LoopButton compact />
+      {a.queue.length > 1 && <ShuffleButton compact />}
       {a.queue.length > 1 && (
-        <button className="btn ghost icon" aria-label="Next" onClick={next}>
+        <button className="btn ghost icon" aria-label="Next track" onClick={next}>
           ⏭
         </button>
       )}

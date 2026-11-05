@@ -1,11 +1,10 @@
 import { useRef, useState } from 'react'
-import { KIND_ICON, UploadError, ingestFile, isVideoUrl, kindOf, youtubeId } from '../../lib/media'
-import { connectedPlaylist, tagLabel, targetsOf } from '../../model/tags'
-import { play, tracksOfBlock, useAudio } from '../../store/audio'
+import { UploadError, ingestFile, isVideoUrl, youtubeId } from '../../lib/media'
+import { connectedPlaylist, tagLabel } from '../../model/tags'
+import { tracksOfBlock } from '../../store/audio'
 import { useTagIndex } from '../hooks'
 import { Lightbox } from './Lightbox'
-import Stage from './MediaStage'
-import { Transport } from './AudioBlocks'
+import Slideshow, { FRAME_DEFAULTS, FrameControls, frameStyle, settingsOf } from './Slideshow'
 import type { Block } from '../../model/types'
 import { setContent, showToast } from '../../store/store'
 import { useResolvedUrl } from '../hooks'
@@ -20,6 +19,8 @@ function OwnMedia({ block }: { block: Block }) {
   const file = useRef<HTMLInputElement>(null)
   const yt = youtubeId(url)
   const isVideo = mime.startsWith('video/') || isVideoUrl(url)
+  const fs = settingsOf(block.content, { ...FRAME_DEFAULTS, ratio: 'auto' })
+  const imgStyle = { objectFit: fs.fit } as const
 
   const picker = (
     <div className="stack">
@@ -90,7 +91,14 @@ function OwnMedia({ block }: { block: Block }) {
   else if (!src) view = <div className="media-broken">Loading…</div>
   else if (isVideo)
     view = (
-      <video className="media-img" src={src} controls playsInline onError={() => setBroken(url)} />
+      <video
+        className="media-img"
+        style={imgStyle}
+        src={src}
+        controls
+        playsInline
+        onError={() => setBroken(url)}
+      />
     )
   else
     view = (
@@ -99,66 +107,51 @@ function OwnMedia({ block }: { block: Block }) {
         aria-label={`Open ${block.title} full screen`}
         onClick={() => setOpen(true)}
       >
-        <img className="media-img" src={src} alt={block.title} onError={() => setBroken(url)} />
+        <img
+          className="media-img"
+          style={imgStyle}
+          src={src}
+          alt={block.title}
+          onError={() => setBroken(url)}
+        />
       </button>
     )
   return (
     <div className="stack">
-      {view}
+      <div
+        className={`slide-frame single${fs.ratio === 'auto' ? ' auto' : ''}`}
+        style={frameStyle(fs)}
+      >
+        {view}
+      </div>
       <details>
         <summary className="btn ghost">Replace</summary>
         {picker}
+      </details>
+      <details>
+        <summary className="btn ghost">Size &amp; shape</summary>
+        <FrameControls holderId={block.id} s={fs} />
       </details>
       {open && src && <Lightbox src={src} alt={block.title} onClose={() => setOpen(false)} />}
     </div>
   )
 }
 
-/** A Media block tagged like a Playlist becomes its "screen": it shows the current image, video or YouTube item. */
+/** A Media block tagged like a Playlist becomes its "screen": an autoplaying slideshow of its pictures, videos and YouTube links. */
 function PlaylistViewer({ block, pl, tag }: { block: Block; pl: Block; tag: string }) {
-  const idx = useTagIndex()
-  const a = useAudio()
   const tracks = tracksOfBlock(pl)
-  const active = a.playlistId === pl.id
-  const viewers = targetsOf(idx, pl)
-    .filter((l) => l.other.type === 'media' && l.other.spaceId === pl.spaceId)
-    .map((l) => l.other.id)
-    .sort()
-  const primary = !viewers.length || viewers[0] === block.id
-  const cur = active ? a.queue[a.index] : tracks[0]
-  const start = (i: number) =>
-    void play(tracks, i, { owner: block.id, playlistId: pl.id, filter: 'all' })
   return (
     <div className="stack">
       <p className="source-line">
         From: {tagLabel(tag)} playlist · {pl.title}
       </p>
-      <Stage track={cur} active={active} showVideo={primary} />
-      {cur && (
-        <p className="now">
-          {KIND_ICON[kindOf(cur)]} {cur.title}
-        </p>
-      )}
-      <Transport active={active} queueLen={tracks.length} onStart={() => start(0)} />
-      {!tracks.length && <p className="dim">That playlist is empty. Add items to it.</p>}
-      {tracks.length > 1 && (
-        <details>
-          <summary className="btn ghost">Items ({tracks.length})</summary>
-          <ol className="playlist">
-            {tracks.map((t, i) => (
-              <li key={i} className={active && a.index === i ? 'now-playing' : ''}>
-                <span className="np">{active && a.index === i ? '▶' : i + 1}</span>
-                <button className="track" onClick={() => start(i)}>
-                  <span aria-hidden className="kind-icon">
-                    {KIND_ICON[kindOf(t)]}
-                  </span>
-                  {t.title}
-                </button>
-              </li>
-            ))}
-          </ol>
-        </details>
-      )}
+      <Slideshow
+        tracks={tracks}
+        playlistId={pl.id}
+        holderId={block.id}
+        settings={settingsOf(block.content, FRAME_DEFAULTS)}
+        label={`${block.title} slideshow`}
+      />
     </div>
   )
 }

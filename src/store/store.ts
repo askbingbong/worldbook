@@ -6,6 +6,7 @@ import type { Block, Folder, ID, Look, Snapshot, Space, World } from '../model/t
 import { getMeta, loadAll, markSeeded, setMeta, write, type StoreName, type Write } from './db'
 import { putFile } from './files'
 import { normalizeSnapshotLooks } from './appearance'
+import { protectStorage } from '../lib/pwa'
 import { GROOVE, makeTone, SUNNY } from '../model/tones'
 
 export interface Toast {
@@ -65,6 +66,7 @@ async function makeTones(): Promise<[string, string]> {
 }
 
 export async function init() {
+  void protectStorage()
   const { snap, seeded } = await loadAll()
   if (!seeded && snap.worlds.length === 0) {
     const seed = buildSeed(await makeTones())

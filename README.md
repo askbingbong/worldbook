@@ -17,6 +17,10 @@ npm run lint     # ESLint
 
 Deployed automatically to GitHub Pages on every push to `main`.
 
+## Install & offline
+
+Worldbook is a progressive web app. Open the live site once, then install it (browser menu → Install app / Add to Home Screen; on iPhone use Share → Add to Home Screen). After that it works with no connection. Your worlds live only in this browser's storage, so use **Library ⋯ → Export everything** for backups.
+
 ## Status
 
 - [x] Setup: scaffold, spec, CI deploy workflow
@@ -27,3 +31,4 @@ Deployed automatically to GitHub Pages on every push to `main`.
 - [x] Stage 5: Appearance — live editor (Colors, Font, Shape, Background, Motion, Adv), 4 built-in presets, My Customs (rename, duplicate, delete, reorder, include-in-random, sort), random preset/custom with reroll, inheritance for subspaces, per-family/type/block overrides, contrast guard + auto-fix, randomize with locks
 - [x] Stage 6: polish — export/import (everything, single world, customs), right inspector panel (≥1100px), rem-based text (scales to 200%), keyboard focus + focus trap, skip link, optional gestures (edge swipe = Back, pinch frames), reduced-motion
 - [x] Follow-up: loop (off / whole list / current item) on Player, playlists and the mini-player; Playlists hold audio, video, images and YouTube links, and a Media block with the same tag becomes the playlist's screen (slideshow for images)
+- [x] Follow-up 2: pictures/videos/YouTube in playlists play as autoplaying slideshows (separate from the audio mini-player), fixed frame shape/fit/width so mixed resolutions never shift the page, thumbnails, captions, full screen; audio shuffle; installable + fully offline (service worker), persistent-storage request + storage meter, library sorting

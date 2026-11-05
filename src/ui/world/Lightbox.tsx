@@ -1,15 +1,34 @@
 import { useEffect, useRef, useState } from 'react'
 
 /** Full-screen image viewer: pinch / wheel / buttons to zoom, drag to pan when zoomed. */
-export function Lightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+export function Lightbox({
+  src,
+  alt,
+  onClose,
+  onPrev,
+  onNext,
+  caption,
+}: {
+  src: string
+  alt: string
+  onClose: () => void
+  onPrev?: () => void
+  onNext?: () => void
+  caption?: string
+}) {
   const [t, setT] = useState({ k: 1, x: 0, y: 0 })
   const pts = useRef(new Map<number, { x: number; y: number }>())
   const last = useRef({ d: 0, x: 0, y: 0 })
   useEffect(() => {
-    const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      else if (e.key === 'ArrowRight') onNext?.()
+      else if (e.key === 'ArrowLeft') onPrev?.()
+    }
     document.addEventListener('keydown', key)
     return () => document.removeEventListener('keydown', key)
-  }, [onClose])
+  }, [onClose, onNext, onPrev])
+  useEffect(() => setT({ k: 1, x: 0, y: 0 }), [src])
   const zoom = (f: number) =>
     setT((v) => ({
       ...v,
@@ -23,6 +42,16 @@ export function Lightbox({ src, alt, onClose }: { src: string; alt: string; onCl
   return (
     <div className="lightbox" role="dialog" aria-modal="true" aria-label={`Image: ${alt}`}>
       <div className="lb-bar">
+        {onPrev && (
+          <button className="btn secondary icon" aria-label="Previous picture" onClick={onPrev}>
+            ⏮
+          </button>
+        )}
+        {onNext && (
+          <button className="btn secondary icon" aria-label="Next picture" onClick={onNext}>
+            ⏭
+          </button>
+        )}
         <button className="btn secondary icon" aria-label="Zoom out" onClick={() => zoom(0.8)}>
           −
         </button>
@@ -73,6 +102,7 @@ export function Lightbox({ src, alt, onClose }: { src: string; alt: string; onCl
           style={{ transform: `translate(${t.x}px, ${t.y}px) scale(${t.k})` }}
         />
       </div>
+      {caption && <div className="lb-caption">{caption}</div>}
     </div>
   )
 }
