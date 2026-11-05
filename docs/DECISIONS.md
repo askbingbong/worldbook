@@ -11,3 +11,11 @@ Judgment calls made where the spec was silent.
 - **Long-press**: 500ms pointer press, plus a visible ⋯ button and right-click/keyboard access on each card.
 - **Look options**: step 2 shows Random preset / Custom / Random custom disabled until Stage 5; Default is the only selectable look for now.
 - **Seed**: Mango World is seeded once (flag in `meta`), so deleting it doesn't bring it back. Its Playlist uses placeholder links until Stage 3.
+- **Generic undo**: every structural edit goes through `change(mutator, message)`, which diffs the before/after snapshot, persists only the diff, and offers an Undo toast that reverts exactly those records (so later unrelated edits aren't lost).
+- **Back button** goes to the space's parent (or the Library from the root); long-press shows the full path. Linked (non-parent) portals don't change the breadcrumb, which follows the parent chain.
+- **Deleting a portal** leaves its subspace in place (it stays reachable from the sidebar tree); nothing is destroyed by a single tap.
+- **Selection vs. select mode**: tapping a block selects it (new blocks insert after it); long-pressing a block header (or World ⋯ → Select mode) enters multi-select. Long-press is allowed on the title input so the header has a usable target; plain taps on the title only edit it.
+- **Not-yet-built block types** (Media upload, Player, Button…) appear in the picker as dimmed "Soon" tiles. Seeded Player/Playlist/Media blocks render read-only placeholders until Stage 3.
+- **Tags/Connections/Style/Appearance/Theme/Export** menu entries show a "arrives in Stage N" toast so the final menu shape is visible now.
+- **Portal transition**: ~400ms accent-tinted radial zoom over a zoom-in of the new space; reduced-motion users get a cross-fade only. Depth cue = one thin accent line per level (root counts as one), max 5 plus "+".
+- **Inputs** commit on blur/Enter (titles, list items) or after a 500ms pause (note text) rather than per keystroke, to keep IndexedDB writes light.

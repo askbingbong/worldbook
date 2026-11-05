@@ -9,3 +9,5 @@ export const useRoute = (): string =>
 export const go = (path: string) => {
   window.location.hash = path
 }
+export const worldPath = (worldId: string, spaceId?: string) =>
+  spaceId ? `/w/${worldId}/${spaceId}` : `/w/${worldId}`

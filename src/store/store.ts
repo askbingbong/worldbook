@@ -1,8 +1,9 @@
 import { useSyncExternalStore } from 'react'
 import { DEFAULT_LOOK, uid } from '../model/defaults'
 import { buildSeed } from '../model/seed'
+import { updateBlock } from '../model/ops'
 import type { Block, Folder, ID, Look, Snapshot, Space, World } from '../model/types'
-import { loadAll, markSeeded, write, type Write } from './db'
+import { loadAll, markSeeded, write, type StoreName, type Write } from './db'
 
 export interface Toast {
   id: number
@@ -206,3 +207,86 @@ function removeWorld(id: ID, withUndo: boolean) {
     })
 }
 export const deleteWorld = (id: ID) => removeWorld(id, true)
+
+/* ---------- generic change + undo ---------- */
+
+const KEYS: StoreName[] = ['worlds', 'spaces', 'blocks', 'folders', 'recents']
+type Rec = { id: string }
+interface Diff {
+  puts: Partial<Record<StoreName, Rec[]>>
+  dels: Partial<Record<StoreName, string[]>>
+  undoPuts: Partial<Record<StoreName, Rec[]>>
+  undoDels: Partial<Record<StoreName, string[]>>
+}
+
+function diff(prev: Snapshot, next: Snapshot): Diff {
+  const d: Diff = { puts: {}, dels: {}, undoPuts: {}, undoDels: {} }
+  for (const k of KEYS) {
+    const a = new Map((prev[k] as Rec[]).map((x) => [x.id, x]))
+    const b = new Map((next[k] as Rec[]).map((x) => [x.id, x]))
+    const puts: Rec[] = [],
+      dels: string[] = [],
+      uPuts: Rec[] = [],
+      uDels: string[] = []
+    for (const [id, v] of b) {
+      if (a.get(id) === v) continue
+      puts.push(v)
+      if (a.has(id)) uPuts.push(a.get(id)!)
+      else uDels.push(id)
+    }
+    for (const [id, v] of a)
+      if (!b.has(id)) {
+        dels.push(id)
+        uPuts.push(v)
+      }
+    d.puts[k] = puts
+    d.dels[k] = dels
+    d.undoPuts[k] = uPuts
+    d.undoDels[k] = uDels
+  }
+  return d
+}
+
+function applyTo(snap: Snapshot, puts: Diff['puts'], dels: Diff['dels']): Snapshot {
+  const out = { ...snap } as Record<StoreName, Rec[]>
+  for (const k of KEYS) {
+    const gone = new Set(dels[k] ?? [])
+    const upd = new Map((puts[k] ?? []).map((x) => [x.id, x]))
+    const kept = (snap[k] as Rec[]).filter((x) => !gone.has(x.id)).map((x) => upd.get(x.id) ?? x)
+    const have = new Set(kept.map((x) => x.id))
+    out[k] = [...kept, ...(puts[k] ?? []).filter((x) => !have.has(x.id))]
+  }
+  return out as unknown as Snapshot
+}
+
+/** Apply a pure Snapshot->Snapshot change, persist the diff, and (optionally) offer Undo. */
+export function change(mut: (s: Snapshot) => Snapshot, message?: string) {
+  const prev = S()
+  const next = mut(prev)
+  if (next === prev) return
+  const d = diff(prev, next)
+  commit(next, { put: d.puts as Write['put'], del: d.dels })
+  if (message)
+    showToast(message, () => {
+      const cur = S()
+      commit(applyTo(cur, d.undoPuts, d.undoDels), {
+        put: d.undoPuts as Write['put'],
+        del: d.undoDels,
+      })
+    })
+}
+
+export function recordPortal(worldId: ID, spaceId: ID, title: string) {
+  change((s) => {
+    const id = `${worldId}:${spaceId}`
+    const rec = { id, worldId, spaceId, title, at: Date.now() }
+    return { ...s, recents: [rec, ...s.recents.filter((r) => r.id !== id)].slice(0, 20) }
+  })
+}
+
+export const setBlock = (id: ID, patch: Partial<Block>) => change((s) => updateBlock(s, id, patch))
+export const setContent = (id: ID, patch: Record<string, unknown>) =>
+  change((s) => {
+    const b = s.blocks.find((x) => x.id === id)
+    return b ? updateBlock(s, id, { content: { ...b.content, ...patch } }) : s
+  })

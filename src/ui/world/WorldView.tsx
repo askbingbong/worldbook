@@ -1,0 +1,420 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lookVars } from '../../model/defaults'
+import { metaOf } from '../../model/blockTypes'
+import {
+  addBlock,
+  childrenOf,
+  deleteBlocks,
+  duplicateBlocks,
+  spacePath,
+  wrapInFrame,
+} from '../../model/ops'
+import type { Block, BlockType, ID } from '../../model/types'
+import { change, recordPortal, showToast, useStore, visitWorld } from '../../store/store'
+import { go, worldPath } from '../router'
+import { useLongPress } from '../useLongPress'
+import BlockView from './BlockView'
+import { Ctx } from './ctx'
+import { BlockMenu, EditSheet, MoveIntoSheet } from './ManageSheets'
+import { PathSheet, RenameSheet, SearchSheet, WorldMenu } from './NavSheets'
+import { BlockPicker, PortalSetup, rememberType, type InsertTarget } from './PickerSheets'
+
+type Sheetstate =
+  | { k: 'picker'; parentId: ID | null }
+  | { k: 'portal'; target: InsertTarget }
+  | { k: 'menu'; block: Block }
+  | { k: 'edit'; block: Block }
+  | { k: 'move'; ids: ID[] }
+  | { k: 'rename' }
+  | { k: 'worldMenu' }
+  | { k: 'search' }
+  | { k: 'path' }
+  | null
+
+export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?: ID }) {
+  const { snap } = useStore()
+  const world = snap.worlds.find((w) => w.id === worldId)
+  const space =
+    snap.spaces.find((s) => s.id === spaceId && s.worldId === worldId) ??
+    snap.spaces.find((s) => s.id === world?.rootSpaceId)
+
+  const [selectedId, setSelectedId] = useState<ID | null>(null)
+  const [selectMode, setSelectMode] = useState(false)
+  const [picked, setPicked] = useState<Set<ID>>(new Set())
+  const [sheet, setSheet] = useState<Sheetstate>(null)
+  const [fx, setFx] = useState(0)
+  const [scrollTo, setScrollTo] = useState<ID | null>(null)
+  // The finger-lift after a long press fires a click on the same block; ignore it.
+  const selectGuard = useRef(0)
+
+  useEffect(() => {
+    if (world) visitWorld(world.id)
+  }, [world?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset transient UI when the space changes.
+  const sid = space?.id
+  useEffect(() => {
+    setSelectedId(null)
+    setSelectMode(false)
+    setPicked(new Set())
+  }, [sid])
+
+  useEffect(() => {
+    if (!scrollTo) return
+    const el = document.querySelector(`[data-block-id="${scrollTo}"]`)
+    if (el) {
+      const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      el.scrollIntoView({ block: 'nearest', behavior: calm ? 'auto' : 'smooth' })
+      setScrollTo(null)
+    }
+  }, [scrollTo, snap.blocks, sid])
+
+  const path = useMemo(() => (space ? spacePath(snap, space.id) : []), [snap, space])
+
+  const enterSpace = useCallback(
+    (id: ID) => {
+      const target = snap.spaces.find((s) => s.id === id)
+      if (!target || !world) return
+      recordPortal(world.id, id, target.title)
+      setFx((n) => n + 1)
+      go(worldPath(world.id, id))
+    },
+    [snap.spaces, world],
+  )
+
+  const startSelect = useCallback((id?: ID) => {
+    selectGuard.current = Date.now()
+    setSelectMode(true)
+    setSheet(null)
+    setPicked(id ? new Set([id]) : new Set())
+  }, [])
+  const exitSelect = () => {
+    setSelectMode(false)
+    setPicked(new Set())
+  }
+  const togglePick = useCallback((id: ID) => {
+    if (Date.now() - selectGuard.current < 400) return
+    setPicked((p) => {
+      const n = new Set(p)
+      if (!n.delete(id)) n.add(id)
+      return n
+    })
+  }, [])
+
+  const back = useLongPress(
+    () => {
+      if (!world || !space) return
+      if (space.parentSpaceId) go(worldPath(world.id, space.parentSpaceId))
+      else go('/')
+    },
+    () => setSheet({ k: 'path' }),
+  )
+
+  if (!world || !space)
+    return (
+      <div className="page">
+        <button className="btn ghost" onClick={() => go('/')}>
+          ← Library
+        </button>
+        <h1>World not found</h1>
+        <p className="dim">It may have been deleted.</p>
+      </div>
+    )
+
+  const blocks = childrenOf(snap.blocks, space.id, null)
+  const close = () => setSheet(null)
+
+  const insertAfter = (): ID | null => {
+    const b = selectedId ? snap.blocks.find((x) => x.id === selectedId) : undefined
+    return b && b.spaceId === space.id ? b.id : null
+  }
+
+  const addOfType = (type: BlockType, parentId: ID | null) => {
+    rememberType(type)
+    if (type === 'portal') {
+      setSheet({ k: 'portal', target: { parentId, afterId: parentId ? null : insertAfter() } })
+      return
+    }
+    let made: Block | null = null
+    change(
+      (s) => {
+        const r = addBlock(s, space.id, type, {
+          parentId,
+          afterId: parentId ? null : insertAfter(),
+        })
+        made = r.block
+        return r.snap
+      },
+      `${metaOf(type).label} added.`,
+    )
+    if (made) {
+      setSelectedId((made as Block).id)
+      setScrollTo((made as Block).id)
+    }
+    close()
+  }
+
+  const pickedIds = [...picked]
+  const needPick = (fn: () => void) => () =>
+    pickedIds.length ? fn() : showToast('Tap blocks to select them first.')
+
+  const depth = path.length
+  const NavButtons = (
+    <>
+      <button className="nav-btn" onClick={() => go('/')}>
+        <span aria-hidden>📚</span>
+        <span>Library</span>
+      </button>
+      <button className="nav-btn" aria-label="Back (hold for full path)" {...back}>
+        <span aria-hidden>←</span>
+        <span>Back</span>
+      </button>
+      <button
+        className="nav-btn add"
+        aria-label="Add block"
+        onClick={() => setSheet({ k: 'picker', parentId: null })}
+      >
+        <span aria-hidden>＋</span>
+        <span>Add</span>
+      </button>
+      <button className="nav-btn" onClick={() => showToast('Tags arrive in Stage 3.')}>
+        <span aria-hidden>#</span>
+        <span>Tags</span>
+      </button>
+      <button className="nav-btn" onClick={() => setSheet({ k: 'search' })}>
+        <span aria-hidden>🔍</span>
+        <span>Search</span>
+      </button>
+    </>
+  )
+
+  const tree = (parent: ID | null, d: number) =>
+    snap.spaces
+      .filter((s) => s.worldId === world.id && s.parentSpaceId === parent)
+      .map((s) => (
+        <div key={s.id}>
+          <button
+            className={`tree-row${s.id === space.id ? ' on' : ''}`}
+            style={{ paddingLeft: 12 + d * 14 }}
+            aria-current={s.id === space.id ? 'page' : undefined}
+            onClick={() => go(worldPath(world.id, s.id))}
+          >
+            {d === 0 ? world.emoji : '🌀'} {s.title}
+          </button>
+          {tree(s.id, d + 1)}
+        </div>
+      ))
+
+  return (
+    <Ctx.Provider
+      value={{
+        world,
+        space,
+        selectedId,
+        setSelectedId,
+        selectMode,
+        picked,
+        togglePick,
+        startSelect,
+        openMenu: (b) => setSheet({ k: 'menu', block: b }),
+        openPicker: (p) => setSheet({ k: 'picker', parentId: p }),
+        enterSpace,
+      }}
+    >
+      <div
+        className={`world-shell${selectMode ? ' select-mode' : ''}`}
+        style={lookVars(world.look) as React.CSSProperties}
+      >
+        <div className="depth" aria-hidden>
+          {Array.from({ length: Math.min(depth, 5) }, (_, i) => (
+            <span key={i} style={{ opacity: 1 - i * 0.14 }} />
+          ))}
+          {depth > 5 && <b>+</b>}
+        </div>
+
+        <aside className="sidebar" aria-label="World tree">
+          <div className="sidebar-title">
+            {world.emoji} {world.title}
+          </div>
+          <div className="tree">{tree(null, 0)}</div>
+          <nav className="side-nav" aria-label="World actions">
+            {NavButtons}
+          </nav>
+        </aside>
+
+        <div className="world-main">
+          <header className="topbar">
+            <button
+              className="title-btn"
+              onClick={() => setSheet({ k: 'rename' })}
+              aria-label={`Rename ${space.title}`}
+            >
+              <span aria-hidden>{world.emoji}</span> {space.title}
+            </button>
+            <button
+              className="btn ghost icon"
+              aria-label="World menu"
+              onClick={() => setSheet({ k: 'worldMenu' })}
+            >
+              ⋯
+            </button>
+            <nav className="crumbs" aria-label="Breadcrumb">
+              <button onClick={() => go('/')}>Library</button>
+              {path.map((s, i) => (
+                <span key={s.id} className="crumb">
+                  <i aria-hidden>›</i>
+                  <button
+                    aria-current={i === path.length - 1 ? 'page' : undefined}
+                    onClick={() => go(worldPath(world.id, s.id))}
+                  >
+                    {i === 0 ? world.title : s.title}
+                  </button>
+                </span>
+              ))}
+            </nav>
+          </header>
+
+          <main className="page world-page">
+            <div key={space.id} className="space-enter">
+              {blocks.length === 0 ? (
+                <button
+                  className="ghost-block"
+                  onClick={() => setSheet({ k: 'picker', parentId: null })}
+                >
+                  Tap + to add your first block
+                </button>
+              ) : (
+                <div className="blocks">
+                  {blocks.map((b) => (
+                    <BlockView key={b.id} block={b} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </main>
+        </div>
+
+        {selectMode ? (
+          <div className="bottom-bar select-bar" role="toolbar" aria-label="Selected blocks">
+            <span className="count" aria-live="polite">
+              {picked.size} selected
+            </span>
+            <button
+              className="btn secondary"
+              onClick={needPick(() => setSheet({ k: 'move', ids: pickedIds }))}
+            >
+              Move into
+            </button>
+            <button className="btn secondary" onClick={() => showToast('Tags arrive in Stage 3.')}>
+              Tag
+            </button>
+            <button
+              className="btn secondary"
+              onClick={needPick(() => {
+                change((s) => wrapInFrame(s, pickedIds).snap, 'Wrapped in a frame.')
+                exitSelect()
+              })}
+            >
+              Wrap in frame
+            </button>
+            <button
+              className="btn secondary"
+              onClick={needPick(() => {
+                change((s) => duplicateBlocks(s, pickedIds), 'Duplicated.')
+                exitSelect()
+              })}
+            >
+              Duplicate
+            </button>
+            <button
+              className="btn danger"
+              onClick={needPick(() => {
+                change(
+                  (s) => deleteBlocks(s, pickedIds),
+                  `${pickedIds.length} block${pickedIds.length > 1 ? 's' : ''} deleted.`,
+                )
+                exitSelect()
+              })}
+            >
+              Delete
+            </button>
+            <button className="btn ghost icon" aria-label="Exit select mode" onClick={exitSelect}>
+              ✕
+            </button>
+          </div>
+        ) : (
+          <nav className="bottom-bar" aria-label="World navigation">
+            {NavButtons}
+          </nav>
+        )}
+
+        {fx > 0 && (
+          <div key={fx} className="portal-fx" aria-hidden onAnimationEnd={() => setFx(0)} />
+        )}
+
+        {sheet?.k === 'picker' && (
+          <BlockPicker onClose={close} onPick={(t) => addOfType(t, sheet.parentId)} />
+        )}
+        {sheet?.k === 'portal' && (
+          <PortalSetup
+            space={space}
+            target={sheet.target}
+            onClose={close}
+            onDone={(b) => {
+              setSelectedId(b.id)
+              setScrollTo(b.id)
+              close()
+            }}
+          />
+        )}
+        {sheet?.k === 'menu' && (
+          <BlockMenu
+            block={sheet.block}
+            onClose={close}
+            onEdit={() => setSheet({ k: 'edit', block: sheet.block })}
+            onMove={() => setSheet({ k: 'move', ids: [sheet.block.id] })}
+          />
+        )}
+        {sheet?.k === 'edit' && <EditSheet block={sheet.block} onClose={close} />}
+        {sheet?.k === 'move' && (
+          <MoveIntoSheet
+            ids={sheet.ids}
+            worldId={world.id}
+            currentSpaceId={space.id}
+            onClose={close}
+            onMoved={() => {
+              exitSelect()
+              close()
+            }}
+          />
+        )}
+        {sheet?.k === 'rename' && <RenameSheet world={world} space={space} onClose={close} />}
+        {sheet?.k === 'worldMenu' && <WorldMenu onClose={close} onSelect={() => startSelect()} />}
+        {sheet?.k === 'search' && (
+          <SearchSheet
+            worldId={world.id}
+            onClose={close}
+            onJump={(b) => {
+              if (b.spaceId !== space.id) go(worldPath(world.id, b.spaceId))
+              setSelectedId(b.id)
+              setScrollTo(b.id)
+              close()
+            }}
+          />
+        )}
+        {sheet?.k === 'path' && (
+          <PathSheet
+            world={world}
+            path={path}
+            onClose={close}
+            onLibrary={() => go('/')}
+            onGo={(s) => {
+              go(worldPath(world.id, s.id))
+              close()
+            }}
+          />
+        )}
+      </div>
+    </Ctx.Provider>
+  )
+}

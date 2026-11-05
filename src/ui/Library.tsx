@@ -71,7 +71,11 @@ export default function Library() {
           <h2 className="section">Recent portals</h2>
           <div className="chips-row">
             {recents.map((r) => (
-              <button key={r.id} className="chip" onClick={() => go(`/w/${r.worldId}`)}>
+              <button
+                key={r.id}
+                className="chip"
+                onClick={() => go(`/w/${r.worldId}/${r.spaceId}`)}
+              >
                 🌀 {r.title} <small>{ago(r.at)}</small>
               </button>
             ))}
