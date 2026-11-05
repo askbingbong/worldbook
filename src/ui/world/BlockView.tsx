@@ -213,7 +213,7 @@ export default function BlockView({ block }: { block: Block }) {
   const tags = block.tags
   return (
     <section
-      className={`block${selected ? ' selected' : ''}${isPicked ? ' picked' : ''}${block.collapsed ? ' collapsed' : ''}${playing ? ' playing' : ''}${dimmed ? ' dimmed' : ''}${hiddenNow ? ' is-hidden' : ''}`}
+      className={`block${selected ? ' selected' : ''}${isPicked ? ' picked' : ''}${block.collapsed ? ' collapsed' : ''}${playing ? ' playing' : ''}${dimmed ? ' dimmed' : ''}${hiddenNow ? ' is-hidden' : ''}${block.type === 'frame' ? ' is-frame' : ''}`}
       data-block-id={block.id}
       style={skin.style}
       aria-label={`${meta.label}: ${block.title}`}

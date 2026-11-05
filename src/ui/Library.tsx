@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { exportAll, importFile } from '../lib/exportImport'
 import { searchWorlds } from '../model/search'
 import type { World } from '../model/types'
 import { useStore, visitWorld } from '../store/store'
@@ -12,7 +13,7 @@ export default function Library() {
   const [query, setQuery] = useState('')
   const [menuFor, setMenuFor] = useState<World | null>(null)
   const [libMenu, setLibMenu] = useState(false)
-  const [info, setInfo] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const worlds = useMemo(() => searchWorlds(snap, query), [snap, query])
   const searching = query.trim() !== ''
@@ -35,7 +36,7 @@ export default function Library() {
   const recents = [...snap.recents].sort((a, b) => b.at - a.at).slice(0, 8)
 
   return (
-    <div className="page">
+    <main id="main" tabIndex={-1} className="page">
       <header className="lib-head">
         <h1>Worldbook</h1>
         <button
@@ -114,6 +115,20 @@ export default function Library() {
         + New World
       </button>
 
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        hidden
+        onChange={async (e) => {
+          const f = e.target.files?.[0]
+          e.target.value = ''
+          if (f) {
+            setLibMenu(false)
+            await importFile(f)
+          }
+        }}
+      />
       {menuFor && <WorldActions world={menuFor} onClose={() => setMenuFor(null)} />}
       {libMenu && (
         <Sheet title="Library" onClose={() => setLibMenu(false)}>
@@ -123,14 +138,19 @@ export default function Library() {
             </button>
             <button
               className="btn secondary"
-              onClick={() => setInfo('Export and import arrive in Stage 6.')}
+              onClick={() => {
+                setLibMenu(false)
+                void exportAll()
+              }}
             >
-              Export / Import
+              Export everything
             </button>
-            {info && <p className="dim">{info}</p>}
+            <button className="btn secondary" onClick={() => fileRef.current?.click()}>
+              Import from a file…
+            </button>
           </div>
         </Sheet>
       )}
-    </div>
+    </main>
   )
 }

@@ -24,6 +24,16 @@ export default function App() {
   if (!ready) return <div className="page dim">Loading…</div>
   return (
     <>
+      <a
+        className="skip-link"
+        href="#main"
+        onClick={(e) => {
+          e.preventDefault()
+          document.getElementById('main')?.focus()
+        }}
+      >
+        Skip to content
+      </a>
       {route === '/customs' ? (
         <CustomsPage />
       ) : route === '/new' ? (

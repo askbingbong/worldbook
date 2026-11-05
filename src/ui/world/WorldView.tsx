@@ -29,7 +29,7 @@ import { Ctx } from './ctx'
 import { BlockMenu, EditSheet, MoveIntoSheet } from './ManageSheets'
 import { exportWorld } from '../../lib/exportImport'
 import { PathSheet, RenameSheet, SearchSheet, WorldMenu } from './NavSheets'
-import { InspectorSheet, TagManager, TagsSheet } from './TagUI'
+import { InspectorBody, InspectorSheet, TagManager, TagsSheet } from './TagUI'
 import { scopeKey, tagIndex, targetsOf } from '../../model/tags'
 import { BlockPicker, PortalSetup, rememberType, type InsertTarget } from './PickerSheets'
 
@@ -67,6 +67,25 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
   // The finger-lift after a long press fires a click on the same block; ignore it.
   const selectGuard = useRef(0)
   const curAccent = useRef('#7c9cff')
+  const [inspectorOn, setInspectorOn] = useState(() => {
+    try {
+      return localStorage.getItem('wb.inspector') !== '0'
+    } catch {
+      return true
+    }
+  })
+  const toggleInspector = () => {
+    setInspectorOn((v) => {
+      try {
+        localStorage.setItem('wb.inspector', v ? '0' : '1')
+      } catch {
+        /* optional convenience */
+      }
+      return !v
+    })
+  }
+  const edge = useRef<{ x: number; y: number } | null>(null)
+  const pinch = useRef<{ d0: number; fired: boolean } | null>(null)
   const [highlight, setHighlight] = useState<string | null>(null)
   const [showHidden, setShowHidden] = useState(false)
   // A jump (search / tag manager) selects its target once the destination space is showing.
@@ -180,14 +199,53 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
     })
   }, [])
 
-  const back = useLongPress(
-    () => {
-      if (!world || !space) return
-      if (space.parentSpaceId) go(worldPath(world.id, space.parentSpaceId))
-      else go('/')
+  const goBack = () => {
+    if (!world || !space) return
+    if (space.parentSpaceId) go(worldPath(world.id, space.parentSpaceId))
+    else go('/')
+  }
+  const back = useLongPress(goBack, () => setSheet({ k: 'path' }))
+
+  // Optional gestures (never required): swipe from the left edge = Back, pinch on a frame = collapse/expand all frames.
+  const dist = (t: React.TouchList) =>
+    Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
+  const setAllFrames = (collapsed: boolean) =>
+    change(
+      (s) => ({
+        ...s,
+        blocks: s.blocks.map((b) =>
+          b.spaceId === space?.id && b.type === 'frame' && b.collapsed !== collapsed
+            ? { ...b, collapsed }
+            : b,
+        ),
+      }),
+      collapsed ? 'Frames collapsed.' : 'Frames expanded.',
+    )
+  const touch = {
+    onTouchStart: (e: React.TouchEvent) => {
+      if (e.touches.length === 1 && e.touches[0].clientX < 24)
+        edge.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      else edge.current = null
+      if (e.touches.length === 2) pinch.current = { d0: dist(e.touches), fired: false }
     },
-    () => setSheet({ k: 'path' }),
-  )
+    onTouchMove: (e: React.TouchEvent) => {
+      const p = pinch.current
+      if (!p || p.fired || e.touches.length !== 2 || !p.d0) return
+      const r = dist(e.touches) / p.d0
+      if (r < 0.7 || r > 1.35) {
+        p.fired = true
+        setAllFrames(r < 1)
+      }
+    },
+    onTouchEnd: (e: React.TouchEvent) => {
+      if (e.touches.length < 2) pinch.current = null
+      const s0 = edge.current
+      edge.current = null
+      const t = e.changedTouches[0]
+      if (s0 && t && t.clientX - s0.x > 80 && Math.abs(t.clientY - s0.y) < 60 && !selectMode)
+        goBack()
+    },
+  }
 
   if (!world || !space)
     return (
@@ -239,6 +297,9 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
   const needPick = (fn: () => void) => () =>
     pickedIds.length ? fn() : showToast('Tap blocks to select them first.')
 
+  const selBlock = selectedId
+    ? snap.blocks.find((b) => b.id === selectedId && b.spaceId === space.id)
+    : undefined
   const depth = path.length
   const NavButtons = (
     <>
@@ -314,8 +375,9 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
       }}
     >
       <div
-        className={`world-shell themed${selectMode ? ' select-mode' : ''}`}
+        className={`world-shell themed${selectMode ? ' select-mode' : ''}${inspectorOn ? '' : ' no-inspector'}`}
         {...themeProps(look)}
+        {...touch}
       >
         <BackdropLayer look={look} />
         <div className="depth" aria-hidden>
@@ -343,6 +405,14 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
               aria-label={`Rename ${space.title}`}
             >
               <span aria-hidden>{world.emoji}</span> {space.title}
+            </button>
+            <button
+              className="btn ghost icon only-wide"
+              aria-label="Toggle inspector panel"
+              aria-pressed={inspectorOn}
+              onClick={toggleInspector}
+            >
+              ◨
             </button>
             <button
               className="btn ghost icon"
@@ -375,7 +445,7 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
               </button>
             </div>
           )}
-          <main className="page world-page">
+          <main className="page world-page" id="main" tabIndex={-1}>
             <div key={space.id} className="space-enter">
               {allTop.length === 0 ? (
                 <button
@@ -405,6 +475,45 @@ export default function WorldView({ worldId, spaceId }: { worldId: ID; spaceId?:
             </div>
           </main>
         </div>
+
+        <aside className="inspector" aria-label="Block inspector">
+          {selBlock ? (
+            <div className="stack">
+              <h2>
+                {metaOf(selBlock.type).icon} {selBlock.title || metaOf(selBlock.type).label}
+              </h2>
+              <p className="dim small">
+                {metaOf(selBlock.type).label} in {space.title}
+              </p>
+              <InspectorBody
+                block={selBlock}
+                onTags={() => setSheet({ k: 'tags', ids: [selBlock.id] })}
+              />
+              <div className="row wrap">
+                <button
+                  className="btn secondary small"
+                  onClick={() => setSheet({ k: 'edit', block: selBlock })}
+                >
+                  Edit
+                </button>
+                <button
+                  className="btn secondary small"
+                  onClick={() => setSheet({ k: 'style', block: selBlock })}
+                >
+                  Style
+                </button>
+                <button
+                  className="btn secondary small"
+                  onClick={() => setSheet({ k: 'move', ids: [selBlock.id] })}
+                >
+                  Move into…
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="dim">Select a block to see how it connects to the rest of your world.</p>
+          )}
+        </aside>
 
         {selectMode ? (
           <div className="bottom-bar select-bar" role="toolbar" aria-label="Selected blocks">

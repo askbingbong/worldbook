@@ -25,4 +25,4 @@ Deployed automatically to GitHub Pages on every push to `main`.
 - [x] Stage 3: tags (direction, local/@global, colors, highlight), Tag Manager, Inspector, Player/Playlist/Media with tag-driven linking, persistent mini-player, offline uploads (compressed + size-capped)
 - [x] Stage 4: Button (link / toggle / play-pause / portal / tag-group, block or tag targets), Toggle (reacts via tags), Random picker, plus Counter, Timer, Clock, Link card
 - [x] Stage 5: Appearance — live editor (Colors, Font, Shape, Background, Motion, Adv), 4 built-in presets, My Customs (rename, duplicate, delete, reorder, include-in-random, sort), random preset/custom with reroll, inheritance for subspaces, per-family/type/block overrides, contrast guard + auto-fix, randomize with locks
-- [ ] Stage 6: polish (a11y, responsive sidebar/inspector, export/import)
+- [x] Stage 6: polish — export/import (everything, single world, customs), right inspector panel (≥1100px), rem-based text (scales to 200%), keyboard focus + focus trap, skip link, optional gestures (edge swipe = Back, pinch frames), reduced-motion

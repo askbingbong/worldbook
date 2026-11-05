@@ -37,3 +37,9 @@ Judgment calls made where the spec was silent.
 - **Contrast guard** checks text, dim text and accent text against background/surface/nested surface at 4.5:1; Auto-fix only moves foreground colors (never backgrounds) and respects locks. Text on the accent color is chosen automatically (dark or white).
 - **Backgrounds**: uploads are stored as `file:<id>` (images ≤3 MB after compression, GIFs ≤4 MB, video ≤30 MB). Images always get an automatic scrim. GIF/video can pause when idle (30 s), tab-hidden or off-screen; a paused GIF shows its first frame. A broken link falls back to the solid background color with a ⚠ note.
 - **Roundness stops**: Sharp 2px, Soft 8px, Round 16px (default), Pill 28px (buttons/chips become fully round).
+- **Export format**: one JSON `{format:"worldbook", version:1, kind:"all"|"world"|"customs", …}` with uploaded files embedded as data URLs. **Import always assigns fresh ids** (a global replace of every id, which also fixes `file:` references), so importing can never overwrite existing data; it's undoable and reuses folders that already exist by name. Non-Worldbook or damaged files are rejected with a message.
+- **Inspector panel** (≥1100px) is on by default and remembers its toggle; below that the same content lives in the ⋯ → Connections sheet.
+- **Text scaling**: all text sizes are `rem`, so the browser/OS font size (up to 200%) scales the app; touch targets use `min-height` so they grow too. Inputs keep a 16px floor.
+- **Gestures** are optional extras: swipe from the left edge goes Back; a pinch on a frame collapses/expands all frames in the space. Pinch handling is limited to frames so normal pinch-zoom (an accessibility feature) still works elsewhere.
+- **Keyboard**: sheets trap focus, close on Escape and return focus to the control that opened them; every interactive element has a visible focus ring; a skip link jumps to the main content.
+- **TypeScript lib** now includes `DOM.Iterable`.

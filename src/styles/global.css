@@ -19,6 +19,7 @@
   box-sizing: border-box;
 }
 html {
+  font-size: 100%;
   -webkit-text-size-adjust: 100%;
   scroll-padding-top: 120px;
   scroll-padding-bottom: 96px;
@@ -27,15 +28,15 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 16px/1.5 var(--font);
+  font: 1rem/1.5 var(--font);
 }
 h1 {
-  font-size: 28px;
+  font-size: 1.75rem;
   line-height: 1.2;
   margin: 0;
 }
 h2 {
-  font-size: 20px;
+  font-size: 1.25rem;
   margin: 0;
 }
 .dim {
@@ -75,7 +76,7 @@ input,
 select,
 textarea {
   font: inherit;
-  font-size: 16px;
+  font-size: max(1rem, 16px);
   min-height: 44px;
   width: 100%;
   color: var(--text);
@@ -96,7 +97,7 @@ fieldset {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--text-dim);
   border: 0;
   padding: 0;
@@ -144,7 +145,7 @@ legend {
 .btn.icon {
   padding: 0;
   width: 44px;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 .btn:disabled {
   opacity: 0.5;
@@ -162,7 +163,7 @@ legend {
   margin-bottom: 8px;
 }
 .section {
-  font-size: 14px;
+  font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-dim);
@@ -205,7 +206,7 @@ legend {
   outline-offset: 2px;
 }
 .world-card .emoji {
-  font-size: 32px;
+  font-size: 2rem;
   line-height: 1.2;
 }
 .wc-title {
@@ -215,7 +216,7 @@ legend {
   padding-left: 8px;
 }
 .wc-sub {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-dim);
 }
 .wc-menu {
@@ -228,7 +229,7 @@ legend {
   position: absolute;
   bottom: 10px;
   right: 12px;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .chips-row {
   display: flex;
@@ -245,7 +246,7 @@ legend {
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .chip small {
   color: var(--text-dim);
@@ -283,7 +284,7 @@ legend {
 }
 .emoji-btn {
   min-height: 44px;
-  font-size: 24px;
+  font-size: 1.5rem;
   border-radius: var(--r-nested);
   border: 1px solid transparent;
   background: var(--surface);
@@ -393,11 +394,11 @@ legend {
 
 /* ===== world view ===== */
 .small {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .btn.small {
   min-height: 44px;
-  font-size: 14px;
+  font-size: 0.875rem;
   padding: 0 12px;
 }
 .grow {
@@ -409,7 +410,7 @@ legend {
   gap: 12px;
   min-height: 44px;
   color: var(--text);
-  font-size: 16px;
+  font-size: 1rem;
 }
 .check-row input {
   width: 22px;
@@ -442,7 +443,7 @@ legend {
   position: absolute;
   right: 8px;
   top: 4px;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--accent);
 }
 
@@ -451,7 +452,7 @@ legend {
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   padding: 8px 8px 0 16px;
   background: var(--bg);
@@ -465,7 +466,7 @@ legend {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -497,7 +498,7 @@ legend {
   display: inline-flex;
   align-items: center;
   color: var(--text-dim);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .crumbs button[aria-current='page'] {
   color: var(--text);
@@ -576,7 +577,7 @@ legend {
   color: var(--text-dim);
 }
 .type-icon {
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .block-title {
   flex: 1;
@@ -591,7 +592,7 @@ legend {
 }
 .tag-chip {
   flex: none;
-  font-size: 12px;
+  font-size: 0.75rem;
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -628,7 +629,7 @@ legend {
   height: 44px;
   display: grid;
   place-items: center;
-  font-size: 24px;
+  font-size: 1.5rem;
   color: var(--accent);
 }
 .select-mode .block {
@@ -659,7 +660,7 @@ legend {
   margin: 8px 0;
 }
 .label-text {
-  font-size: 14px;
+  font-size: 0.875rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-dim);
@@ -677,7 +678,7 @@ legend {
   min-height: 44px;
   padding: 0 12px;
   font: inherit;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--text);
   background: transparent;
   border: 0;
@@ -702,7 +703,7 @@ legend {
   min-height: 44px;
   padding: 0 12px;
   font: inherit;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--text-dim);
   background: transparent;
   border: 0;
@@ -741,7 +742,7 @@ legend {
   background: none;
   border: 0;
   color: var(--accent);
-  font-size: 22px;
+  font-size: 1.375rem;
   cursor: pointer;
 }
 .md .done,
@@ -809,7 +810,7 @@ legend {
   transform: scale(0.98);
 }
 .portal-orb {
-  font-size: 28px;
+  font-size: 1.75rem;
 }
 .portal-card {
   display: flex;
@@ -823,11 +824,11 @@ legend {
 }
 .portal-name {
   font-weight: 700;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 .portal-go {
   color: var(--accent);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .portal-button {
   display: inline-flex;
@@ -838,7 +839,7 @@ legend {
   border-radius: 999px;
 }
 .portal-button .portal-orb {
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .portal-icon {
   display: inline-flex;
@@ -859,10 +860,10 @@ legend {
   height: 56px;
   border-radius: 50%;
   border: 2px solid var(--accent);
-  font-size: 28px;
+  font-size: 1.75rem;
 }
 .portal-cap {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-dim);
 }
 .portal-banner {
@@ -943,12 +944,12 @@ legend {
   align-items: center;
   justify-content: center;
   gap: 0;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-dim);
   border-radius: var(--r-nested);
 }
 .nav-btn span:first-child {
-  font-size: 20px;
+  font-size: 1.25rem;
   line-height: 1.2;
 }
 .nav-btn.add span:first-child {
@@ -976,12 +977,12 @@ legend {
 }
 .select-bar .btn {
   flex: none;
-  font-size: 14px;
+  font-size: 0.875rem;
   padding: 0 12px;
 }
 .count {
   flex: none;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--text-dim);
   padding: 0 8px;
 }
@@ -1013,7 +1014,7 @@ legend {
   min-height: 84px;
   padding: 8px 4px;
   font: inherit;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--text);
   text-align: center;
   background: var(--surface-2);
@@ -1026,7 +1027,7 @@ legend {
   cursor: not-allowed;
 }
 .tile-icon {
-  font-size: 24px;
+  font-size: 1.5rem;
 }
 .move-tree {
   display: flex;
@@ -1098,7 +1099,7 @@ legend {
   }
   .sidebar-title {
     font-weight: 700;
-    font-size: 20px;
+    font-size: 1.25rem;
     padding: 0 12px 12px;
     overflow-wrap: anywhere;
   }
@@ -2116,5 +2117,104 @@ input[type='range'] {
   .look-row .mini {
     flex-basis: 120px;
     width: 120px;
+  }
+}
+
+/* ===== stage 6: polish ===== */
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+[role='button']:focus-visible,
+[role='checkbox']:focus-visible,
+[role='radio']:focus-visible,
+[role='switch']:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.is-frame {
+  touch-action: pan-x pan-y;
+}
+.only-wide {
+  display: none;
+}
+.inspector {
+  display: none;
+}
+.inspector h2 {
+  font-size: 1.25rem;
+  overflow-wrap: anywhere;
+}
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -60px;
+  z-index: 100;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: var(--r-btn);
+}
+.skip-link:focus {
+  top: 8px;
+}
+@media (min-width: 1100px) {
+  .only-wide {
+    display: inline-flex;
+  }
+  .world-shell {
+    grid-template-columns: 260px minmax(0, 1fr) 320px;
+  }
+  .world-shell.no-inspector {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+  .inspector {
+    display: block;
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    overflow: auto;
+    padding: 16px;
+    background: var(--surface);
+    border-left: 1px solid var(--line);
+    z-index: 2;
+  }
+  .world-shell.no-inspector .inspector {
+    display: none;
+  }
+  body.in-world .mini-player {
+    right: calc(16px + 320px);
+  }
+  .world-shell.no-inspector ~ .mini-player {
+    right: 16px;
+  }
+}
+@media (min-width: 480px) and (max-width: 767px) {
+  .page {
+    padding-inline: 32px;
+  }
+}
+@media (max-width: 479px) {
+  .tabs button,
+  .seg button {
+    padding-inline: 8px;
+  }
+}
+/* long words / big text never force sideways scrolling */
+.page,
+.sheet,
+.block,
+.editor-panel {
+  overflow-wrap: anywhere;
+}
+.nav-btn {
+  overflow: hidden;
+}
+@media (forced-colors: active) {
+  .block,
+  .btn,
+  .tag-chip {
+    border: 1px solid CanvasText;
   }
 }

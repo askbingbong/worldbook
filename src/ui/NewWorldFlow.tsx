@@ -128,7 +128,7 @@ export default function NewWorldFlow() {
     )
 
   return (
-    <div className="page flow">
+    <main id="main" tabIndex={-1} className="page flow">
       <header className="flow-head">
         <button className="btn ghost" onClick={back}>
           ← {step === 1 ? 'Cancel' : 'Back'}
@@ -340,6 +340,6 @@ export default function NewWorldFlow() {
           </button>
         </div>
       )}
-    </div>
+    </main>
   )
 }

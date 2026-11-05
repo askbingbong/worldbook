@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { exportCustoms, importFile } from '../../lib/exportImport'
 import { DEFAULT_LOOK } from '../../model/defaults'
 import type { Custom } from '../../model/types'
 import {
@@ -26,6 +27,7 @@ export default function CustomsPage() {
   const [editing, setEditing] = useState<Custom | 'new' | null>(null)
   const [renaming, setRenaming] = useState<Custom | null>(null)
   const [name, setName] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const list = useMemo(() => {
     const l = [...snap.customs]
@@ -62,7 +64,7 @@ export default function CustomsPage() {
   }
 
   return (
-    <div className="page">
+    <main id="main" tabIndex={-1} className="page">
       <header className="flow-head">
         <button className="btn ghost" onClick={() => go('/')}>
           ← Library
@@ -154,6 +156,29 @@ export default function CustomsPage() {
       {sort !== 'manual' && list.length > 1 && (
         <p className="dim small">Switch to “My order” to reorder with the arrows.</p>
       )}
+      <div className="row wrap" style={{ marginTop: 16 }}>
+        <button
+          className="btn secondary"
+          disabled={!snap.customs.length}
+          onClick={() => void exportCustoms()}
+        >
+          Export customs
+        </button>
+        <button className="btn secondary" onClick={() => fileRef.current?.click()}>
+          Import from a file…
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={async (e) => {
+            const f = e.target.files?.[0]
+            e.target.value = ''
+            if (f) await importFile(f)
+          }}
+        />
+      </div>
       {renaming && (
         <Sheet title="Rename look" onClose={() => setRenaming(null)}>
           <form
@@ -174,6 +199,6 @@ export default function CustomsPage() {
           </form>
         </Sheet>
       )}
-    </div>
+    </main>
   )
 }
